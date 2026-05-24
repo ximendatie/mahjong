@@ -96,8 +96,17 @@ final class AgentTaskStore: ObservableObject {
 
     private func refreshProviderTasks() async {
         var fetchedTasks: [AgentTask] = []
-        for provider in providers {
-            fetchedTasks.append(contentsOf: await provider.fetchTasks())
+
+        await withTaskGroup(of: [AgentTask].self) { group in
+            for provider in providers {
+                group.addTask {
+                    await provider.fetchTasks()
+                }
+            }
+
+            for await providerResult in group {
+                fetchedTasks.append(contentsOf: providerResult)
+            }
         }
 
         providerTasks = deduplicate(fetchedTasks)

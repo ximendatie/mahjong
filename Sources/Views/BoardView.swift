@@ -675,10 +675,8 @@ private struct AgentRuntimeCardView: View {
         HStack(alignment: .top, spacing: 12) {
             ZStack {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(iconColor.opacity(0.15))
-                Image(systemName: runtime.kind == .terminal ? "terminal" : "app.dashed")
-                    .font(.title3)
-                    .foregroundStyle(iconColor)
+                    .fill(Color.primary.opacity(0.06))
+                AgentRuntimeIconView(runtime: runtime)
             }
             .frame(width: 42, height: 42)
 
@@ -721,13 +719,6 @@ private struct AgentRuntimeCardView: View {
         )
     }
 
-    private var iconColor: Color {
-        switch runtime.kind {
-        case .desktopApp: .blue
-        case .terminal: .cyan
-        }
-    }
-
     private func metadataRow(_ label: String, _ value: String) -> some View {
         HStack {
             Text(label)
@@ -739,5 +730,49 @@ private struct AgentRuntimeCardView: View {
                 .truncationMode(.middle)
         }
         .font(.caption2)
+    }
+}
+
+private struct AgentRuntimeIconView: View {
+    let runtime: AgentRuntime
+
+    var body: some View {
+        if let image = AgentRuntimeIconResolver.image(for: runtime) {
+            Image(nsImage: image)
+                .resizable()
+                .scaledToFit()
+                .padding(5)
+                .accessibilityLabel(Text("\(runtime.provider) icon"))
+        } else {
+            Image(systemName: runtime.kind == .terminal ? "terminal" : "app.dashed")
+                .font(.title3)
+                .foregroundStyle(fallbackColor)
+                .accessibilityLabel(Text("\(runtime.provider) icon"))
+        }
+    }
+
+    private var fallbackColor: Color {
+        switch runtime.kind {
+        case .desktopApp: .blue
+        case .terminal: .cyan
+        }
+    }
+}
+
+@MainActor
+private enum AgentRuntimeIconResolver {
+    static func image(for runtime: AgentRuntime) -> NSImage? {
+        let bundleIdentifiers = [
+            runtime.bundleIdentifier,
+            runtime.iconBundleIdentifier
+        ].compactMap(\.self)
+
+        for bundleIdentifier in bundleIdentifiers {
+            if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) {
+                return NSWorkspace.shared.icon(forFile: appURL.path)
+            }
+        }
+
+        return nil
     }
 }

@@ -33,6 +33,8 @@ AgentsPet uses read-only local observation by default:
 - Claude local sessions: reads `~/.claude/projects/**/*.jsonl`.
 - Terminal agents: reads local process metadata from `ps` and records each
   matching process as its own task.
-- ChatGPT / Codex / Claude desktop apps: detects app presence through
+- OpenClaw: detects OpenClaw Desktop and OpenClaw gateway/CLI process presence
+  only.
+- ChatGPT / Codex / Claude / OpenClaw desktop apps: detects app presence through
   `NSWorkspace`; no conversation data is parsed for ChatGPT Desktop in this
   MVP.

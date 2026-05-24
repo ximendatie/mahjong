@@ -14,6 +14,7 @@ struct TerminalAgentRuntimeProvider: AgentRuntimeProvider {
         let output = ProcessListReader.readProcessList()
         var codexCount = 0
         var claudeCount = 0
+        var openClawCount = 0
 
         for line in output.split(separator: "\n") {
             guard let args = ProcessListReader.arguments(from: line) else {
@@ -21,6 +22,11 @@ struct TerminalAgentRuntimeProvider: AgentRuntimeProvider {
             }
 
             let lowercased = args.lowercased()
+            if ProcessListReader.isOpenClawProcess(lowercased) {
+                openClawCount += 1
+                continue
+            }
+
             guard ProcessListReader.isTerminalAgentProcess(lowercased) else {
                 continue
             }
@@ -41,7 +47,8 @@ struct TerminalAgentRuntimeProvider: AgentRuntimeProvider {
                     provider: "Codex",
                     kind: .terminal,
                     summary: "检测到 Codex 终端运行态；任务卡仍以 Codex session 为准",
-                    processCount: codexCount
+                    processCount: codexCount,
+                    iconBundleIdentifier: AgentRuntimeIconBundle.codex
                 )
             )
         }
@@ -54,7 +61,22 @@ struct TerminalAgentRuntimeProvider: AgentRuntimeProvider {
                     provider: "Claude",
                     kind: .terminal,
                     summary: "检测到 Claude 终端运行态；任务卡仍以 Claude session 为准",
-                    processCount: claudeCount
+                    processCount: claudeCount,
+                    iconBundleIdentifier: AgentRuntimeIconBundle.claude
+                )
+            )
+        }
+
+        if openClawCount > 0 {
+            runtimes.append(
+                AgentRuntime(
+                    id: "terminal:openclaw",
+                    name: "OpenClaw Gateway",
+                    provider: "OpenClaw",
+                    kind: .terminal,
+                    summary: "检测到 OpenClaw gateway/CLI 运行态；仅观测是否运行",
+                    processCount: openClawCount,
+                    iconBundleIdentifier: AgentRuntimeIconBundle.openClaw
                 )
             )
         }
@@ -88,7 +110,8 @@ struct DesktopAppRuntimeProvider: AgentRuntimeProvider {
                 provider: "OpenAI",
                 kind: .desktopApp,
                 summary: "已运行；当前不安全解析对话任务粒度",
-                bundleIdentifier: bundleIdentifier
+                bundleIdentifier: bundleIdentifier,
+                iconBundleIdentifier: AgentRuntimeIconBundle.chatGPT
             )
         case "com.openai.codex":
             return AgentRuntime(
@@ -97,7 +120,8 @@ struct DesktopAppRuntimeProvider: AgentRuntimeProvider {
                 provider: "Codex",
                 kind: .desktopApp,
                 summary: "已运行；任务卡从本地 Codex session 读取",
-                bundleIdentifier: bundleIdentifier
+                bundleIdentifier: bundleIdentifier,
+                iconBundleIdentifier: AgentRuntimeIconBundle.codex
             )
         case "com.anthropic.claudefordesktop", "com.anthropic.Claude":
             return AgentRuntime(
@@ -106,12 +130,30 @@ struct DesktopAppRuntimeProvider: AgentRuntimeProvider {
                 provider: "Claude",
                 kind: .desktopApp,
                 summary: "已运行；任务卡从可用本地 session 记录读取",
-                bundleIdentifier: bundleIdentifier
+                bundleIdentifier: bundleIdentifier,
+                iconBundleIdentifier: AgentRuntimeIconBundle.claude
+            )
+        case "ai.openclaw.mac":
+            return AgentRuntime(
+                id: "desktop:openclaw",
+                name: "OpenClaw Desktop",
+                provider: "OpenClaw",
+                kind: .desktopApp,
+                summary: "已运行；仅观测桌面端运行状态",
+                bundleIdentifier: bundleIdentifier,
+                iconBundleIdentifier: AgentRuntimeIconBundle.openClaw
             )
         default:
             return nil
         }
     }
+}
+
+enum AgentRuntimeIconBundle {
+    static let chatGPT = "com.openai.chat"
+    static let codex = "com.openai.codex"
+    static let claude = "com.anthropic.claudefordesktop"
+    static let openClaw = "ai.openclaw.mac"
 }
 
 enum ProcessListReader {
@@ -166,6 +208,24 @@ enum ProcessListReader {
             "node_repl",
             "skycomputeruseclient",
             "extension-host",
+            "agentspet",
+            " rg ",
+            "/bin/ps"
+        ]
+
+        return !excludedMarkers.contains { args.contains($0) }
+    }
+
+    static func isOpenClawProcess(_ args: String) -> Bool {
+        let hasOpenClawName = args.contains(" openclaw")
+            || args.contains("/openclaw")
+
+        guard hasOpenClawName else {
+            return false
+        }
+
+        let excludedMarkers = [
+            "openclaw.app/",
             "agentspet",
             " rg ",
             "/bin/ps"

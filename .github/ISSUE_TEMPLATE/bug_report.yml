@@ -1,0 +1,55 @@
+name: Bug report
+description: Report something that is broken or confusing.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include the smallest safe reproduction you can share.
+      placeholder: |
+        1. Run ...
+        2. Click ...
+        3. See ...
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "14.6"
+    validations:
+      required: true
+  - type: input
+    id: swift
+    attributes:
+      label: Swift version
+      placeholder: "swift --version"
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Provider
+      options:
+        - Codex
+        - Claude
+        - Claude Desktop
+        - Hermes
+        - OpenClaw
+        - ChatGPT Desktop
+        - Terminal agents
+        - App UI
+        - Build/test
+        - Other
+  - type: textarea
+    id: extra
+    attributes:
+      label: Extra context
+      description: Do not paste private prompts, full session files, or secrets.

@@ -35,6 +35,10 @@ if [[ -d "$PWD/Resources/MahjongTiles" ]]; then
   cp -R "$PWD/Resources/MahjongTiles" "$RESOURCES_DIR/MahjongTiles"
 fi
 
+if [[ -d "$PWD/Resources/AgentIcons" ]]; then
+  cp -R "$PWD/Resources/AgentIcons" "$RESOURCES_DIR/AgentIcons"
+fi
+
 cat > "$CONTENTS_DIR/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

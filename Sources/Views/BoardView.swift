@@ -253,14 +253,20 @@ private struct TaskCardView: View {
                 .frame(width: 4)
 
             VStack(alignment: .leading, spacing: 10) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(task.title)
-                        .font(.system(size: 14, weight: .semibold))
-                        .lineLimit(2)
-                    Text(task.summary)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(task.title)
+                            .font(.system(size: 14, weight: .semibold))
+                            .lineLimit(2)
+                        Text(task.summary)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+
+                    Spacer(minLength: 8)
+
+                    TaskAgentIconBadgeView(task: task)
                 }
 
                 VStack(spacing: 5) {
@@ -302,6 +308,115 @@ private struct TaskCardView: View {
                 .truncationMode(.middle)
         }
         .font(.caption2)
+    }
+}
+
+private struct TaskAgentIconBadgeView: View {
+    let task: AgentTask
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(Color.primary.opacity(0.07))
+
+            if let image = AgentTaskIconResolver.image(for: task) {
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .padding(4)
+            } else {
+                Image(systemName: fallbackSystemImage)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(fallbackColor)
+            }
+        }
+        .frame(width: 34, height: 34)
+        .accessibilityLabel(Text("\(task.agent) icon"))
+    }
+
+    private var fallbackSystemImage: String {
+        switch AgentTaskIconResolver.kind(for: task) {
+        case .codex: "sparkles"
+        case .claude: "brain.head.profile"
+        case .hermes: "bolt.circle"
+        case .openClaw: "terminal"
+        case .unknown: "cpu"
+        }
+    }
+
+    private var fallbackColor: Color {
+        switch AgentTaskIconResolver.kind(for: task) {
+        case .codex: .cyan
+        case .claude: .orange
+        case .hermes: .purple
+        case .openClaw: .blue
+        case .unknown: .secondary
+        }
+    }
+}
+
+@MainActor
+private enum AgentTaskIconResolver {
+    enum AgentKind {
+        case codex
+        case claude
+        case hermes
+        case openClaw
+        case unknown
+    }
+
+    static func image(for task: AgentTask) -> NSImage? {
+        if kind(for: task) == .hermes,
+           let resourceURL = Bundle.main.url(forResource: "AgentIcons/hermes", withExtension: "png") {
+            return NSImage(contentsOf: resourceURL)
+        }
+
+        guard let bundleIdentifier = bundleIdentifier(for: task) else {
+            return nil
+        }
+
+        guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) else {
+            return nil
+        }
+
+        return NSWorkspace.shared.icon(forFile: appURL.path)
+    }
+
+    static func kind(for task: AgentTask) -> AgentKind {
+        let lowercased = task.agent.lowercased()
+
+        if lowercased.contains("codex") {
+            return .codex
+        }
+
+        if lowercased.contains("claude") {
+            return .claude
+        }
+
+        if lowercased.contains("hermes") {
+            return .hermes
+        }
+
+        if lowercased.contains("openclaw") {
+            return .openClaw
+        }
+
+        return .unknown
+    }
+
+    private static func bundleIdentifier(for task: AgentTask) -> String? {
+        switch kind(for: task) {
+        case .codex:
+            return AgentRuntimeIconBundle.codex
+        case .claude:
+            return AgentRuntimeIconBundle.claude
+        case .hermes:
+            return AgentRuntimeIconBundle.hermes
+        case .openClaw:
+            return AgentRuntimeIconBundle.openClaw
+        case .unknown:
+            return nil
+        }
     }
 }
 
@@ -762,6 +877,11 @@ private struct AgentRuntimeIconView: View {
 @MainActor
 private enum AgentRuntimeIconResolver {
     static func image(for runtime: AgentRuntime) -> NSImage? {
+        if let iconResourceName = runtime.iconResourceName,
+           let resourceURL = Bundle.main.url(forResource: iconResourceName, withExtension: "png") {
+            return NSImage(contentsOf: resourceURL)
+        }
+
         let bundleIdentifiers = [
             runtime.bundleIdentifier,
             runtime.iconBundleIdentifier

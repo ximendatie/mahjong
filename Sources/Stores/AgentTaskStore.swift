@@ -24,7 +24,8 @@ final class AgentTaskStore: ObservableObject {
         self.providers = providers ?? [
             CodexLocalProvider(),
             ClaudeLocalProvider(),
-            ClaudeDesktopLocalProvider()
+            ClaudeDesktopLocalProvider(),
+            HermesLocalProvider()
         ]
         self.runtimeProviders = runtimeProviders ?? [
             TerminalAgentRuntimeProvider(),

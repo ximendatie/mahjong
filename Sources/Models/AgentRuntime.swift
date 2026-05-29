@@ -22,6 +22,7 @@ struct AgentRuntime: Identifiable, Equatable, Sendable {
     var updatedAt: Date
     var bundleIdentifier: String?
     var iconBundleIdentifier: String?
+    var iconResourceName: String?
 
     init(
         id: String,
@@ -32,7 +33,8 @@ struct AgentRuntime: Identifiable, Equatable, Sendable {
         processCount: Int = 1,
         updatedAt: Date = Date(),
         bundleIdentifier: String? = nil,
-        iconBundleIdentifier: String? = nil
+        iconBundleIdentifier: String? = nil,
+        iconResourceName: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -43,5 +45,6 @@ struct AgentRuntime: Identifiable, Equatable, Sendable {
         self.updatedAt = updatedAt
         self.bundleIdentifier = bundleIdentifier
         self.iconBundleIdentifier = iconBundleIdentifier
+        self.iconResourceName = iconResourceName
     }
 }

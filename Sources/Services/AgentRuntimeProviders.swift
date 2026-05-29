@@ -14,6 +14,7 @@ struct TerminalAgentRuntimeProvider: AgentRuntimeProvider {
         let output = ProcessListReader.readProcessList()
         var codexCount = 0
         var claudeCount = 0
+        var hermesCount = 0
         var openClawCount = 0
 
         for line in output.split(separator: "\n") {
@@ -24,6 +25,11 @@ struct TerminalAgentRuntimeProvider: AgentRuntimeProvider {
             let lowercased = args.lowercased()
             if ProcessListReader.isOpenClawProcess(lowercased) {
                 openClawCount += 1
+                continue
+            }
+
+            if ProcessListReader.isHermesProcess(lowercased) {
+                hermesCount += 1
                 continue
             }
 
@@ -63,6 +69,20 @@ struct TerminalAgentRuntimeProvider: AgentRuntimeProvider {
                     summary: "检测到 Claude 终端运行态；任务卡仍以 Claude session 为准",
                     processCount: claudeCount,
                     iconBundleIdentifier: AgentRuntimeIconBundle.claude
+                )
+            )
+        }
+
+        if hermesCount > 0 {
+            runtimes.append(
+                AgentRuntime(
+                    id: "terminal:hermes",
+                    name: "Hermes CLI",
+                    provider: "Hermes",
+                    kind: .terminal,
+                    summary: "检测到 Hermes 终端运行态；任务卡从本地 Hermes state.db 读取",
+                    processCount: hermesCount,
+                    iconResourceName: "AgentIcons/hermes"
                 )
             )
         }
@@ -143,6 +163,16 @@ struct DesktopAppRuntimeProvider: AgentRuntimeProvider {
                 bundleIdentifier: bundleIdentifier,
                 iconBundleIdentifier: AgentRuntimeIconBundle.openClaw
             )
+        case "com.nousresearch.hermes":
+            return AgentRuntime(
+                id: "desktop:hermes",
+                name: "Hermes Agent",
+                provider: "Hermes",
+                kind: .desktopApp,
+                summary: "已运行；任务卡从本地 Hermes state.db 读取",
+                bundleIdentifier: bundleIdentifier,
+                iconBundleIdentifier: AgentRuntimeIconBundle.hermes
+            )
         default:
             return nil
         }
@@ -153,6 +183,7 @@ enum AgentRuntimeIconBundle {
     static let chatGPT = "com.openai.chat"
     static let codex = "com.openai.codex"
     static let claude = "com.anthropic.claudefordesktop"
+    static let hermes = "com.nousresearch.hermes"
     static let openClaw = "ai.openclaw.mac"
 }
 
@@ -226,6 +257,25 @@ enum ProcessListReader {
 
         let excludedMarkers = [
             "openclaw.app/",
+            "agentspet",
+            " rg ",
+            "/bin/ps"
+        ]
+
+        return !excludedMarkers.contains { args.contains($0) }
+    }
+
+    static func isHermesProcess(_ args: String) -> Bool {
+        let hasHermesName = args.contains(" hermes")
+            || args.contains("/hermes")
+            || args.contains("/.hermes/hermes-agent/")
+
+        guard hasHermesName else {
+            return false
+        }
+
+        let excludedMarkers = [
+            "hermes agent.app/",
             "agentspet",
             " rg ",
             "/bin/ps"

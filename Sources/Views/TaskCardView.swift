@@ -96,6 +96,7 @@ struct TaskAgentIconBadgeView: View {
 
     private var fallbackSystemImage: String {
         switch AgentTaskIconResolver.kind(for: task) {
+        case .chatGPT: "bubble.left.and.bubble.right"
         case .codex: "sparkles"
         case .claude: "brain.head.profile"
         case .hermes: "bolt.circle"
@@ -106,6 +107,7 @@ struct TaskAgentIconBadgeView: View {
 
     private var fallbackColor: Color {
         switch AgentTaskIconResolver.kind(for: task) {
+        case .chatGPT: .green
         case .codex: .cyan
         case .claude: .orange
         case .hermes: .purple
@@ -118,6 +120,7 @@ struct TaskAgentIconBadgeView: View {
 @MainActor
 enum AgentTaskIconResolver {
     enum AgentKind {
+        case chatGPT
         case codex
         case claude
         case hermes
@@ -145,6 +148,10 @@ enum AgentTaskIconResolver {
     static func kind(for task: AgentTask) -> AgentKind {
         let lowercased = task.agent.lowercased()
 
+        if lowercased.contains("chatgpt") {
+            return .chatGPT
+        }
+
         if lowercased.contains("codex") {
             return .codex
         }
@@ -166,6 +173,8 @@ enum AgentTaskIconResolver {
 
     private static func bundleIdentifier(for task: AgentTask) -> String? {
         switch kind(for: task) {
+        case .chatGPT:
+            return AgentRuntimeIconBundle.chatGPT
         case .codex:
             return AgentRuntimeIconBundle.codex
         case .claude:

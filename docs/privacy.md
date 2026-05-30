@@ -8,6 +8,7 @@ It does not upload session data and does not control provider apps.
 | Provider | Local data used |
 | --- | --- |
 | Codex | `~/.codex/session_index.jsonl`, `~/.codex/sessions/**/*.jsonl` |
+| ChatGPT | Running app bundle identifier from `NSWorkspace`, Accessibility button labels for generation state, and modification times under `~/Library/Application Support/com.openai.chat/conversations-v3-*/*.data` |
 | Claude CLI | `~/.claude/projects/**/*.jsonl` |
 | Claude Desktop | `~/Library/Application Support/Claude-3p/local-agent-mode-sessions/**/local_*.json`, `~/Library/Application Support/Claude-3p/claude-code-sessions/**/local_*.json` |
 | Hermes | `~/.hermes/state.db` |
@@ -19,6 +20,10 @@ It does not upload session data and does not control provider apps.
 Task cards are intended to show compact metadata such as title, provider,
 status, model, token usage, and recent activity time. The app avoids displaying
 full conversation bodies by default.
+
+For ChatGPT Desktop, Accessibility access is used only to inspect control labels
+such as stop-generation buttons. mahjong does not read Accessibility text values
+from the conversation body.
 
 Privacy mode hides task titles, summaries, model hints, token usage, future-plan
 notes, and detailed diagnostic paths in the UI.

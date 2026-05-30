@@ -66,13 +66,16 @@ struct ClaudeDesktopLocalProvider: AgentTaskProvider {
             ?? Date.distantPast
         let isArchived = object["isArchived"] as? Bool ?? false
         let isAgentCompleted = object["isAgentCompleted"] as? Bool
-        let isRunning = cliSessionID.map { runningCLISessionIDs.contains($0) } ?? false
+        let hasRunningCLIProcess = cliSessionID.map { runningCLISessionIDs.contains($0) } ?? false
+        let auditState = readAuditState(metadataURL: url)
 
         let status: AgentTaskStatus
-        if isRunning && isAgentCompleted != true && !isArchived {
-            status = .running
-        } else if isArchived || Date().timeIntervalSince(updatedAt) >= 24 * 60 * 60 {
+        if isArchived || Date().timeIntervalSince(updatedAt) >= 24 * 60 * 60 {
             status = .history
+        } else if isAgentCompleted == true || auditState == .completed {
+            status = .completed
+        } else if auditState == .running || hasRunningCLIProcess {
+            status = .running
         } else {
             status = .completed
         }
@@ -149,9 +152,7 @@ struct ClaudeDesktopLocalProvider: AgentTaskProvider {
     }
 
     private func readTokenUsage(metadataURL: URL) -> Int {
-        let auditURL = metadataURL
-            .deletingPathExtension()
-            .appendingPathComponent("audit.jsonl")
+        let auditURL = auditURL(for: metadataURL)
         guard let content = try? String(contentsOf: auditURL, encoding: .utf8) else {
             return 0
         }
@@ -171,6 +172,52 @@ struct ClaudeDesktopLocalProvider: AgentTaskProvider {
         }
 
         return maxTokens
+    }
+
+    private func readAuditState(metadataURL: URL) -> ClaudeDesktopAuditState {
+        let auditURL = auditURL(for: metadataURL)
+        guard let content = try? String(contentsOf: auditURL, encoding: .utf8) else {
+            return .unknown
+        }
+
+        var state = ClaudeDesktopAuditState.unknown
+        for line in content.split(separator: "\n") {
+            guard
+                let data = String(line).data(using: .utf8),
+                let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                let type = object["type"] as? String
+            else {
+                continue
+            }
+
+            switch type {
+            case "result":
+                state = .completed
+            case "system":
+                if object["status"] as? String == "requesting" {
+                    state = .running
+                }
+            case "assistant":
+                guard let message = object["message"] as? [String: Any] else {
+                    continue
+                }
+                if message["stop_reason"] is String {
+                    state = .completed
+                } else {
+                    state = .running
+                }
+            default:
+                continue
+            }
+        }
+
+        return state
+    }
+
+    private func auditURL(for metadataURL: URL) -> URL {
+        metadataURL
+            .deletingPathExtension()
+            .appendingPathComponent("audit.jsonl")
     }
 
     private func sumClaudeTokens(in usage: [String: Any]) -> Int {
@@ -230,4 +277,10 @@ private enum ClaudeDesktopSessionKind: String {
         case .code: "Claude Desktop Code 会话"
         }
     }
+}
+
+private enum ClaudeDesktopAuditState {
+    case unknown
+    case running
+    case completed
 }

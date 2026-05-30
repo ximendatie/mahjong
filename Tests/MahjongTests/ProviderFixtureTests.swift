@@ -83,6 +83,78 @@ final class ProviderFixtureTests: XCTestCase {
         XCTAssertEqual(task.status, .completed)
     }
 
+    func testClaudeDesktopAuditRequestingMarksTaskRunning() async throws {
+        let nowMilliseconds = Int(Date().timeIntervalSince1970 * 1000)
+        let sessionsDirectory = temporaryHome
+            .appendingPathComponent("Library", isDirectory: true)
+            .appendingPathComponent("Application Support", isDirectory: true)
+            .appendingPathComponent("Claude-3p", isDirectory: true)
+            .appendingPathComponent("local-agent-mode-sessions", isDirectory: true)
+        try FileManager.default.createDirectory(at: sessionsDirectory, withIntermediateDirectories: true)
+
+        let metadataURL = sessionsDirectory.appendingPathComponent("local_running_fixture.json")
+        let auditDirectory = sessionsDirectory.appendingPathComponent("local_running_fixture", isDirectory: true)
+        try FileManager.default.createDirectory(at: auditDirectory, withIntermediateDirectories: true)
+
+        let metadata = """
+        {"sessionId":"running-fixture","title":"Running desktop task","model":"claude-sonnet-test","lastActivityAt":\(nowMilliseconds),"isArchived":false}
+        """
+        try metadata.write(to: metadataURL, atomically: true, encoding: .utf8)
+
+        let audit = """
+        {"type":"user","message":{"role":"user","content":[{"type":"text","text":"Summarize this."}]}}
+        {"type":"system","status":"requesting"}
+        {"type":"assistant","message":{"role":"assistant","type":"message","stop_reason":null,"usage":{"input_tokens":5,"output_tokens":0},"content":[]}}
+        """
+        try audit.write(
+            to: auditDirectory.appendingPathComponent("audit.jsonl"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let tasks = await ClaudeDesktopLocalProvider(homeDirectory: temporaryHome).fetchTasks()
+
+        let task = try XCTUnwrap(tasks.first)
+        XCTAssertEqual(task.id, "claude-desktop:cowork:running-fixture")
+        XCTAssertEqual(task.status, .running)
+    }
+
+    func testClaudeDesktopAuditResultMarksTaskCompleted() async throws {
+        let nowMilliseconds = Int(Date().timeIntervalSince1970 * 1000)
+        let sessionsDirectory = temporaryHome
+            .appendingPathComponent("Library", isDirectory: true)
+            .appendingPathComponent("Application Support", isDirectory: true)
+            .appendingPathComponent("Claude-3p", isDirectory: true)
+            .appendingPathComponent("local-agent-mode-sessions", isDirectory: true)
+        try FileManager.default.createDirectory(at: sessionsDirectory, withIntermediateDirectories: true)
+
+        let metadataURL = sessionsDirectory.appendingPathComponent("local_result_fixture.json")
+        let auditDirectory = sessionsDirectory.appendingPathComponent("local_result_fixture", isDirectory: true)
+        try FileManager.default.createDirectory(at: auditDirectory, withIntermediateDirectories: true)
+
+        let metadata = """
+        {"sessionId":"result-fixture","title":"Completed desktop task","model":"claude-sonnet-test","lastActivityAt":\(nowMilliseconds),"isArchived":false}
+        """
+        try metadata.write(to: metadataURL, atomically: true, encoding: .utf8)
+
+        let audit = """
+        {"type":"system","status":"requesting"}
+        {"type":"assistant","message":{"role":"assistant","type":"message","stop_reason":null,"usage":{"input_tokens":5,"output_tokens":0},"content":[]}}
+        {"type":"result","result":"Done"}
+        """
+        try audit.write(
+            to: auditDirectory.appendingPathComponent("audit.jsonl"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let tasks = await ClaudeDesktopLocalProvider(homeDirectory: temporaryHome).fetchTasks()
+
+        let task = try XCTUnwrap(tasks.first)
+        XCTAssertEqual(task.id, "claude-desktop:cowork:result-fixture")
+        XCTAssertEqual(task.status, .completed)
+    }
+
     func testHermesSQLiteFixtureMapsProviderIDAndConfirmedCompletion() async throws {
         try XCTSkipUnless(
             FileManager.default.fileExists(atPath: "/usr/bin/sqlite3"),

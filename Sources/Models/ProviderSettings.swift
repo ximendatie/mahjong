@@ -2,6 +2,7 @@ import Foundation
 
 enum AgentProviderID: String, CaseIterable, Codable, Sendable {
     case codex
+    case chatGPT = "chatgpt"
     case claudeCLI = "claude-cli"
     case claudeDesktop = "claude-desktop"
     case hermes
@@ -30,6 +31,16 @@ struct AgentProviderDescriptor: Identifiable, Equatable, Sendable {
                 ],
                 privacyDescription: "Reads Codex thread titles, local paths, model, token usage, and task event metadata.",
                 detail: "Reads local Codex session index and event streams."
+            ),
+            AgentProviderDescriptor(
+                id: .chatGPT,
+                displayName: "ChatGPT",
+                defaultEnabled: true,
+                dataPaths: [
+                    "\(home)/Library/Application Support/com.openai.chat"
+                ],
+                privacyDescription: "Reads ChatGPT Desktop app running state, Accessibility button labels for generation state, and conversation cache modification times without parsing conversation text.",
+                detail: "Observes ChatGPT Desktop running state and recent local cache activity."
             ),
             AgentProviderDescriptor(
                 id: .claudeCLI,

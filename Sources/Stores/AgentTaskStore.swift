@@ -32,6 +32,7 @@ final class AgentTaskStore: ObservableObject {
         self.descriptors = descriptors ?? AgentProviderDescriptor.defaults()
         self.providers = providers ?? [
             CodexLocalProvider(),
+            ChatGPTLocalProvider(),
             ClaudeLocalProvider(),
             ClaudeDesktopLocalProvider(),
             HermesLocalProvider()

@@ -85,7 +85,7 @@ mahjong uses read-only local observation by default:
 | Hermes local sessions | Reads `~/.hermes/state.db` session/message metadata and detects Hermes Agent desktop app presence through `NSWorkspace` plus Hermes CLI/gateway process presence from `ps`. |
 | Terminal agents | Reads local process metadata from `ps` and records matching Codex, Claude, Hermes, and OpenClaw processes. |
 | OpenClaw | Detects OpenClaw Desktop and OpenClaw gateway/CLI process presence only. |
-| ChatGPT Desktop | Detects app presence through `NSWorkspace`; no conversation data is parsed in this MVP. |
+| ChatGPT Desktop | Detects app presence through `NSWorkspace`, checks Accessibility button labels for generation state, and uses local conversation cache modification times as recent-activity fallback. Conversation text is not parsed. |
 
 ## Documentation
 

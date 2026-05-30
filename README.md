@@ -92,7 +92,8 @@ mahjong uses read-only local observation by default:
 - [Privacy and security notes](docs/privacy.md)
 - [Architecture overview](docs/architecture.md)
 - [Roadmap](docs/roadmap.md)
-- [Contributing guide](CONTRIBUTING.md)
+- [Contributing guide](CONTRIBUTING.md) / [中文](CONTRIBUTING.zh-CN.md)
+- [Security policy](SECURITY.md) / [中文](SECURITY.zh-CN.md)
 
 ## Roadmap
 

@@ -86,7 +86,6 @@ struct ClaudeDesktopLocalProvider: AgentTaskProvider {
             model: model,
             tokenUsage: readTokenUsage(metadataURL: url),
             status: status,
-            confidence: isRunning ? .confirmed : .inferred,
             updatedAt: updatedAt,
             openURL: url
         )
@@ -207,6 +206,10 @@ struct ClaudeDesktopLocalProvider: AgentTaskProvider {
             prefix = "Claude Desktop Cowork 正在处理"
         case (.code, .running):
             prefix = "Claude Desktop Code 正在处理"
+        case (.cowork, .interrupted):
+            prefix = "Claude Desktop Cowork 已中断"
+        case (.code, .interrupted):
+            prefix = "Claude Desktop Code 已中断"
         case (.cowork, _):
             prefix = "Claude Desktop Cowork 最近活动"
         case (.code, _):

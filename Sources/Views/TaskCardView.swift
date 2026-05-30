@@ -30,10 +30,8 @@ struct TaskCardView: View {
                 }
 
                 VStack(spacing: 5) {
-                    metadataRow("Agent", task.agent)
                     metadataRow("Model", isPrivacyModeEnabled ? "Hidden" : task.model)
                     metadataRow("Tokens", isPrivacyModeEnabled ? "Hidden" : Formatters.tokens(task.tokenUsage))
-                    metadataRow("State", task.confidence.title)
                 }
             }
             .padding(12)
@@ -54,6 +52,7 @@ struct TaskCardView: View {
         switch task.status {
         case .running: .cyan
         case .completed: .green
+        case .interrupted: .orange
         case .history: .secondary.opacity(0.45)
         }
     }

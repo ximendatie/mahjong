@@ -71,8 +71,8 @@ struct EmptyColumnView: View {
         switch status {
         case .running: "pause.circle"
         case .completed: "checkmark.circle"
+        case .interrupted: "exclamationmark.circle"
         case .history: "clock"
         }
     }
 }
-

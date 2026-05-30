@@ -123,4 +123,29 @@ final class CodexLocalProviderTests: XCTestCase {
         XCTAssertNotEqual(task.status, .running)
         XCTAssertEqual(task.tokenUsage, 425574)
     }
+
+    func testInterruptedSessionIsMarkedInterrupted() async throws {
+        let sessionID = "44444444-5555-6666-7777-888888888888"
+        let now = ISO8601DateFormatter().string(from: Date())
+        let sessionsDirectory = temporaryHome
+            .appendingPathComponent(".codex", isDirectory: true)
+            .appendingPathComponent("sessions", isDirectory: true)
+            .appendingPathComponent("2026", isDirectory: true)
+        try FileManager.default.createDirectory(at: sessionsDirectory, withIntermediateDirectories: true)
+
+        let session = """
+        {"timestamp":"\(now)","type":"session_meta","payload":{"id":"\(sessionID)","cwd":"\(temporaryHome.path)/mahjong"}}
+        {"timestamp":"\(now)","type":"event_msg","payload":{"type":"user_message","message":"Run a long task\\n"}}
+        {"timestamp":"\(now)","type":"event_msg","payload":{"type":"task_started"}}
+        {"timestamp":"\(now)","type":"event_msg","payload":{"type":"turn_aborted","reason":"interrupted"}}
+        """
+        let sessionURL = sessionsDirectory.appendingPathComponent("rollout-\(sessionID).jsonl")
+        try session.write(to: sessionURL, atomically: true, encoding: .utf8)
+
+        let tasks = await CodexLocalProvider(homeDirectory: temporaryHome).fetchTasks()
+
+        let task = try XCTUnwrap(tasks.first)
+        XCTAssertEqual(task.title, "Run a long task")
+        XCTAssertEqual(task.status, .interrupted)
+    }
 }

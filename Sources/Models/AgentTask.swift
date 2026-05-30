@@ -3,6 +3,7 @@ import Foundation
 enum AgentTaskStatus: String, CaseIterable, Identifiable, Sendable {
     case running
     case completed
+    case interrupted
     case history
 
     var id: String { rawValue }
@@ -11,23 +12,8 @@ enum AgentTaskStatus: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .running: "进行中"
         case .completed: "已完成"
+        case .interrupted: "已中断"
         case .history: "已归档"
-        }
-    }
-}
-
-enum AgentTaskConfidence: String, Codable, Sendable {
-    case confirmed
-    case inferred
-    case stale
-    case unknown
-
-    var title: String {
-        switch self {
-        case .confirmed: "Confirmed"
-        case .inferred: "Inferred"
-        case .stale: "Stale"
-        case .unknown: "Unknown"
         }
     }
 }
@@ -41,7 +27,6 @@ struct AgentTask: Identifiable, Equatable, Sendable {
     var model: String
     var tokenUsage: Int
     var status: AgentTaskStatus
-    var confidence: AgentTaskConfidence
     var updatedAt: Date
     var openURL: URL?
 
@@ -54,7 +39,6 @@ struct AgentTask: Identifiable, Equatable, Sendable {
         model: String,
         tokenUsage: Int,
         status: AgentTaskStatus,
-        confidence: AgentTaskConfidence = .unknown,
         updatedAt: Date = Date(),
         openURL: URL? = nil
     ) {
@@ -66,7 +50,6 @@ struct AgentTask: Identifiable, Equatable, Sendable {
         self.model = model
         self.tokenUsage = tokenUsage
         self.status = status
-        self.confidence = confidence
         self.updatedAt = updatedAt
         self.openURL = openURL
     }

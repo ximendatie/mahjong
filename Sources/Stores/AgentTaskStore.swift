@@ -302,7 +302,7 @@ final class AgentTaskStore: ObservableObject {
     }
 
     private func publishMergedTasks() {
-        tasks = deduplicate(archiveCompletedBeforeToday(applyLocalOverrides(to: providerTasks)))
+        tasks = deduplicate(archiveResolvedBeforeToday(applyLocalOverrides(to: providerTasks)))
             .sorted { lhs, rhs in
                 if lhs.status != rhs.status {
                     return statusSortIndex(lhs.status) < statusSortIndex(rhs.status)
@@ -330,10 +330,11 @@ final class AgentTaskStore: ObservableObject {
         }
     }
 
-    private func archiveCompletedBeforeToday(_ tasks: [AgentTask]) -> [AgentTask] {
+    private func archiveResolvedBeforeToday(_ tasks: [AgentTask]) -> [AgentTask] {
         let calendar = Calendar.current
         return tasks.map { task in
-            guard task.status == .completed, !calendar.isDateInToday(task.updatedAt) else {
+            guard (task.status == .completed || task.status == .interrupted),
+                  !calendar.isDateInToday(task.updatedAt) else {
                 return task
             }
 
@@ -373,7 +374,8 @@ final class AgentTaskStore: ObservableObject {
         switch status {
         case .running: 0
         case .completed: 1
-        case .history: 2
+        case .interrupted: 2
+        case .history: 3
         }
     }
 

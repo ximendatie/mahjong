@@ -131,6 +131,13 @@ struct BoardView: View {
                 isPrivacyModeEnabled: taskStore.isPrivacyModeEnabled,
                 selectedTaskID: $selectedTaskID
             )
+            Divider()
+            TaskColumnView(
+                status: .interrupted,
+                tasks: taskStore.tasks(for: .interrupted),
+                isPrivacyModeEnabled: taskStore.isPrivacyModeEnabled,
+                selectedTaskID: $selectedTaskID
+            )
             if showsArchivedTasks {
                 Divider()
                 TaskColumnView(
@@ -158,4 +165,3 @@ struct BoardView: View {
         }
     }
 }
-

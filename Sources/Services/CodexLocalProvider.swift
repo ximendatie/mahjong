@@ -38,7 +38,7 @@ struct CodexLocalProvider: AgentTaskProvider {
                 ?? indexEntry?.updatedAt
                 ?? fileModifiedAt(fileURL)
                 ?? Date.distantPast
-            let isRunning = isActivelyRunning(metadata: metadata, updatedAt: updatedAt)
+            let status = status(for: metadata, updatedAt: updatedAt)
 
             let task = AgentTask(
                 id: "codex:\(sessionID)",
@@ -48,14 +48,13 @@ struct CodexLocalProvider: AgentTaskProvider {
                 summary: codexSummary(
                     statusEvent: metadata.lastTaskEvent,
                     cwd: metadata.cwd,
-                    isRunning: isRunning
+                    status: status
                 ),
                 agent: "Codex",
                 providerID: providerID,
                 model: metadata.model ?? "unknown",
                 tokenUsage: metadata.totalTokens,
-                status: isRunning ? .running : status(for: updatedAt, completed: true),
-                confidence: confidence(for: metadata, isRunning: isRunning),
+                status: status,
                 updatedAt: updatedAt,
                 openURL: fileURL
             )
@@ -75,8 +74,7 @@ struct CodexLocalProvider: AgentTaskProvider {
                 providerID: providerID,
                 model: "unknown",
                 tokenUsage: 0,
-                status: status(for: entry.updatedAt, completed: true),
-                confidence: .unknown,
+                status: status(for: entry.updatedAt),
                 updatedAt: entry.updatedAt
             )
         }
@@ -154,7 +152,7 @@ struct CodexLocalProvider: AgentTaskProvider {
 
             if object["type"] as? String == "event_msg",
                let eventType = payload["type"] as? String,
-               eventType == "task_started" || eventType == "task_complete" {
+               eventType == "task_started" || eventType == "task_complete" || eventType == "turn_aborted" {
                 metadata.lastTaskEvent = eventType
             }
 
@@ -199,27 +197,36 @@ struct CodexLocalProvider: AgentTaskProvider {
         return trimmed.split(separator: "-").suffix(5).joined(separator: "-").nilIfEmpty
     }
 
-    private func codexSummary(statusEvent: String?, cwd: String?, isRunning: Bool) -> String {
+    private func codexSummary(statusEvent: String?, cwd: String?, status: AgentTaskStatus) -> String {
         let location = cwd.flatMap { URL(fileURLWithPath: $0).lastPathComponent.nilIfEmpty }
 
         switch statusEvent {
-        case "task_started" where isRunning:
+        case "task_started" where status == .running:
             return location.map { "正在处理本地任务：\($0)" } ?? "正在处理本地 Codex 任务"
         case "task_started":
             return location.map { "任务已停止更新：\($0)" } ?? "Codex 任务已停止更新"
         case "task_complete":
             return location.map { "最近完成于：\($0)" } ?? "最近完成一个 Codex 任务"
+        case "turn_aborted":
+            return location.map { "任务已中断于：\($0)" } ?? "Codex 任务已中断"
         default:
             return location.map { "最近活动目录：\($0)" } ?? "Codex 本机会话"
         }
     }
 
-    private func status(for updatedAt: Date, completed: Bool) -> AgentTaskStatus {
-        guard completed else {
-            return .running
-        }
-
+    private func status(for updatedAt: Date) -> AgentTaskStatus {
         return Date().timeIntervalSince(updatedAt) < 24 * 60 * 60 ? .completed : .history
+    }
+
+    private func status(for metadata: CodexSessionMetadata, updatedAt: Date) -> AgentTaskStatus {
+        switch metadata.lastTaskEvent {
+        case "task_started":
+            return isActivelyRunning(metadata: metadata, updatedAt: updatedAt) ? .running : status(for: updatedAt)
+        case "turn_aborted":
+            return Date().timeIntervalSince(updatedAt) < 24 * 60 * 60 ? .interrupted : .history
+        default:
+            return status(for: updatedAt)
+        }
     }
 
     private func isActivelyRunning(metadata: CodexSessionMetadata, updatedAt: Date) -> Bool {
@@ -228,17 +235,6 @@ struct CodexLocalProvider: AgentTaskProvider {
         }
 
         return Date().timeIntervalSince(updatedAt) < Self.runningActivityWindow
-    }
-
-    private func confidence(for metadata: CodexSessionMetadata, isRunning: Bool) -> AgentTaskConfidence {
-        switch metadata.lastTaskEvent {
-        case "task_complete":
-            return .confirmed
-        case "task_started":
-            return isRunning ? .confirmed : .stale
-        default:
-            return .unknown
-        }
     }
 
     private func fileModifiedAt(_ url: URL) -> Date? {

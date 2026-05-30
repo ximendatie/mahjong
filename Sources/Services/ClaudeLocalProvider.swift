@@ -93,7 +93,6 @@ struct ClaudeLocalProvider: AgentTaskProvider {
             model: model ?? "unknown",
             tokenUsage: totalTokens,
             status: status,
-            confidence: status == .running ? .inferred : .inferred,
             updatedAt: updatedAt,
             openURL: url
         )

@@ -17,7 +17,7 @@ final class ProviderFixtureTests: XCTestCase {
         temporaryHome = nil
     }
 
-    func testClaudeCLIFixtureMapsProviderIDAndConfidence() async throws {
+    func testClaudeCLIFixtureMapsProviderIDAndStatus() async throws {
         let now = ISO8601DateFormatter().string(from: Date())
         let projectDirectory = temporaryHome
             .appendingPathComponent(".claude", isDirectory: true)
@@ -43,7 +43,6 @@ final class ProviderFixtureTests: XCTestCase {
         XCTAssertEqual(task.model, "claude-opus-test")
         XCTAssertEqual(task.tokenUsage, 16)
         XCTAssertEqual(task.status, .running)
-        XCTAssertEqual(task.confidence, .inferred)
     }
 
     func testClaudeDesktopFixtureMapsMetadataAndAuditUsage() async throws {
@@ -82,7 +81,6 @@ final class ProviderFixtureTests: XCTestCase {
         XCTAssertEqual(task.model, "claude-sonnet-test")
         XCTAssertEqual(task.tokenUsage, 36)
         XCTAssertEqual(task.status, .completed)
-        XCTAssertEqual(task.confidence, .inferred)
     }
 
     func testHermesSQLiteFixtureMapsProviderIDAndConfirmedCompletion() async throws {
@@ -136,7 +134,7 @@ final class ProviderFixtureTests: XCTestCase {
                 29,
                 'Hermes fixture task'
             );
-            insert into messages values ('hermes-fixture', 'user', \(nowSeconds - 25), 'Build status confidence', null);
+            insert into messages values ('hermes-fixture', 'user', \(nowSeconds - 25), 'Build status view', null);
             insert into messages values ('hermes-fixture', 'assistant', \(nowSeconds - 1), 'Done', 'stop');
             """
         )
@@ -150,7 +148,47 @@ final class ProviderFixtureTests: XCTestCase {
         XCTAssertEqual(task.model, "gpt-hermes-test")
         XCTAssertEqual(task.tokenUsage, 88)
         XCTAssertEqual(task.status, .completed)
-        XCTAssertEqual(task.confidence, .confirmed)
+    }
+
+    func testHermesSQLiteFixtureMapsInterruptedEndReason() async throws {
+        try XCTSkipUnless(
+            FileManager.default.fileExists(atPath: "/usr/bin/sqlite3"),
+            "Hermes fixture test requires sqlite3."
+        )
+
+        let hermesDirectory = temporaryHome.appendingPathComponent(".hermes", isDirectory: true)
+        try FileManager.default.createDirectory(at: hermesDirectory, withIntermediateDirectories: true)
+        let databaseURL = hermesDirectory.appendingPathComponent("state.db")
+        let nowSeconds = Int(Date().timeIntervalSince1970)
+
+        try createHermesSchema(databaseURL: databaseURL)
+        try runSQLite(
+            databaseURL: databaseURL,
+            sql: """
+            insert into sessions values (
+                'hermes-interrupted',
+                'cli',
+                'gpt-hermes-test',
+                \(nowSeconds - 30),
+                \(nowSeconds),
+                'interrupted',
+                1,
+                0,
+                3,
+                5,
+                0,
+                0,
+                'Hermes interrupted task'
+            );
+            insert into messages values ('hermes-interrupted', 'user', \(nowSeconds - 25), 'Stop this task', null);
+            """
+        )
+
+        let tasks = await HermesLocalProvider(homeDirectory: temporaryHome).fetchTasks()
+
+        let task = try XCTUnwrap(tasks.first)
+        XCTAssertEqual(task.id, "hermes:hermes-interrupted")
+        XCTAssertEqual(task.status, .interrupted)
     }
 
     private func runSQLite(databaseURL: URL, sql: String) throws {
@@ -166,5 +204,35 @@ final class ProviderFixtureTests: XCTestCase {
             let error = String(data: stderr.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
             XCTFail("sqlite3 failed: \(error)")
         }
+    }
+
+    private func createHermesSchema(databaseURL: URL) throws {
+        try runSQLite(
+            databaseURL: databaseURL,
+            sql: """
+            create table sessions (
+                id text primary key,
+                source text,
+                model text,
+                started_at integer,
+                ended_at integer,
+                end_reason text,
+                message_count integer,
+                tool_call_count integer,
+                input_tokens integer,
+                output_tokens integer,
+                cache_read_tokens integer,
+                cache_write_tokens integer,
+                title text
+            );
+            create table messages (
+                session_id text,
+                role text,
+                timestamp integer,
+                content text,
+                finish_reason text
+            );
+            """
+        )
     }
 }

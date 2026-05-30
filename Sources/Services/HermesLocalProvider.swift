@@ -109,8 +109,11 @@ struct HermesLocalProvider: AgentTaskProvider {
             + intValue(row["output_tokens"])
             + intValue(row["cache_read_tokens"])
             + intValue(row["cache_write_tokens"])
+        let endReason = row["end_reason"] as? String
         let status: AgentTaskStatus
-        if endedAt == nil && !hasAssistantCompletion && !isStaleOpenSession {
+        if isInterrupted(endReason: endReason) {
+            status = .interrupted
+        } else if endedAt == nil && !hasAssistantCompletion && !isStaleOpenSession {
             status = .running
         } else if Date().timeIntervalSince(updatedAt) < 24 * 60 * 60 {
             status = .completed
@@ -121,13 +124,12 @@ struct HermesLocalProvider: AgentTaskProvider {
         return AgentTask(
             id: "hermes:\(id)",
             title: title,
-            summary: summary(source: source, status: status, endReason: row["end_reason"] as? String),
+            summary: summary(source: source, status: status, endReason: endReason),
             agent: "Hermes",
             providerID: providerID,
             model: model,
             tokenUsage: tokenUsage,
             status: status,
-            confidence: status == .running ? .inferred : (endedAt == nil && isStaleOpenSession ? .stale : .confirmed),
             updatedAt: updatedAt,
             openURL: hermesDirectory.appendingPathComponent("state.db")
         )
@@ -140,9 +142,20 @@ struct HermesLocalProvider: AgentTaskProvider {
             return "Hermes \(sourceTitle) 正在处理"
         case .completed:
             return endReason.map { "Hermes \(sourceTitle) 最近完成：\($0)" } ?? "Hermes \(sourceTitle) 最近完成"
+        case .interrupted:
+            return endReason.map { "Hermes \(sourceTitle) 已中断：\($0)" } ?? "Hermes \(sourceTitle) 已中断"
         case .history:
             return endReason.map { "Hermes \(sourceTitle) 历史会话：\($0)" } ?? "Hermes \(sourceTitle) 历史会话"
         }
+    }
+
+    private func isInterrupted(endReason: String?) -> Bool {
+        guard let endReason = endReason?.lowercased() else {
+            return false
+        }
+        return endReason.contains("interrupt")
+            || endReason.contains("cancel")
+            || endReason.contains("abort")
     }
 
     private func dateFromSeconds(_ value: Any?) -> Date? {

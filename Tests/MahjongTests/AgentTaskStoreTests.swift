@@ -5,6 +5,7 @@ import XCTest
 final class AgentTaskStoreTests: XCTestCase {
     override func setUp() {
         super.setUp()
+        UserDefaults.standard.removeObject(forKey: "local.mahjong.futureTasks")
         UserDefaults.standard.removeObject(forKey: "local.mahjong.providerSettings")
         UserDefaults.standard.removeObject(forKey: "local.mahjong.privacyMode")
     }
@@ -120,6 +121,29 @@ final class AgentTaskStoreTests: XCTestCase {
         try await waitUntil { store.diagnostics.first { $0.id == "codex" }?.status == .disabled }
 
         XCTAssertTrue(store.tasks.isEmpty)
+    }
+
+    func testFutureTasksAreSimpleLocalItems() {
+        let store = AgentTaskStore(providers: [], runtimeProviders: [])
+
+        store.createFutureTask(title: "整理第三阶段", note: "先做轻量记录事项")
+
+        XCTAssertEqual(store.futureTasks.count, 1)
+        let task = store.futureTasks[0]
+        XCTAssertEqual(task.title, "整理第三阶段")
+        XCTAssertEqual(task.note, "先做轻量记录事项")
+        XCTAssertFalse(task.isCompleted)
+
+        store.setFutureTaskCompleted(id: task.id, isCompleted: true)
+        XCTAssertTrue(store.futureTasks[0].isCompleted)
+    }
+
+    func testFutureTaskTitleFallsBackToFirstNoteLine() {
+        let store = AgentTaskStore(providers: [], runtimeProviders: [])
+
+        store.createFutureTask(title: "", note: "记录一个未来想法\n第二行细节")
+
+        XCTAssertEqual(store.futureTasks.first?.title, "记录一个未来想法")
     }
 
     private func waitUntil(

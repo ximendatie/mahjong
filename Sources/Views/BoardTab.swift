@@ -10,7 +10,7 @@ enum BoardTab: String, CaseIterable, Identifiable {
         switch self {
         case .sessions: "Session 任务"
         case .agents: "运行 Agent"
-        case .futureTasks: "未来任务"
+        case .futureTasks: "未来计划"
         case .settings: "设置"
         }
     }
@@ -24,4 +24,3 @@ enum BoardTab: String, CaseIterable, Identifiable {
         }
     }
 }
-

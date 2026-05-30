@@ -4,7 +4,7 @@ import Foundation
 final class AgentTaskStore: ObservableObject {
     @Published private(set) var tasks: [AgentTask]
     @Published private(set) var runtimes: [AgentRuntime]
-    @Published private(set) var futureTasks: [FutureAgentTask]
+    @Published private(set) var futureTasks: [FutureTaskItem]
     @Published private(set) var completionPulseID: UUID?
     @Published private(set) var providerSettings: [AgentProviderSetting]
     @Published private(set) var diagnostics: [ProviderDiagnostic]
@@ -95,43 +95,46 @@ final class AgentTaskStore: ObservableObject {
         return tasks.first { $0.id == id }
     }
 
-    func futureTasks(for agent: FutureAgent) -> [FutureAgentTask] {
+    func sortedFutureTasks() -> [FutureTaskItem] {
         futureTasks
-            .filter { $0.agent == agent }
             .sorted { lhs, rhs in
-                if lhs.scheduledAt != rhs.scheduledAt {
-                    return lhs.scheduledAt < rhs.scheduledAt
+                if lhs.isCompleted != rhs.isCompleted {
+                    return !lhs.isCompleted && rhs.isCompleted
                 }
-                return lhs.createdAt > rhs.createdAt
+                return lhs.updatedAt > rhs.updatedAt
             }
     }
 
     func createFutureTask(
         title: String,
-        prompt: String,
-        agent: FutureAgent,
-        modelHint: String,
-        scheduledAt: Date
+        note: String
     ) {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedTitle.isEmpty, !trimmedPrompt.isEmpty else {
+        let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTitle.isEmpty || !trimmedNote.isEmpty else {
             return
         }
 
-        let task = FutureAgentTask(
-            title: trimmedTitle,
-            prompt: trimmedPrompt,
-            agent: agent,
-            modelHint: modelHint.trimmingCharacters(in: .whitespacesAndNewlines),
-            scheduledAt: scheduledAt
+        let task = FutureTaskItem(
+            title: trimmedTitle.isEmpty ? trimmedNote.firstLineTitle : trimmedTitle,
+            note: trimmedNote
         )
 
         futureTasks.append(task)
         persistFutureTasks()
     }
 
-    func deleteFutureTask(id: FutureAgentTask.ID) {
+    func setFutureTaskCompleted(id: FutureTaskItem.ID, isCompleted: Bool) {
+        guard let index = futureTasks.firstIndex(where: { $0.id == id }) else {
+            return
+        }
+
+        futureTasks[index].isCompleted = isCompleted
+        futureTasks[index].updatedAt = Date()
+        persistFutureTasks()
+    }
+
+    func deleteFutureTask(id: FutureTaskItem.ID) {
         futureTasks.removeAll { $0.id == id }
         persistFutureTasks()
     }
@@ -374,7 +377,7 @@ final class AgentTaskStore: ObservableObject {
         }
     }
 
-    private static func loadFutureTasks() -> [FutureAgentTask] {
+    private static func loadFutureTasks() -> [FutureTaskItem] {
         let defaults = UserDefaults.standard
         guard let data = defaults.data(forKey: futureTasksStorageKey)
             ?? defaults.data(forKey: legacyFutureTasksStorageKey)
@@ -383,7 +386,7 @@ final class AgentTaskStore: ObservableObject {
         }
 
         do {
-            return try JSONDecoder().decode([FutureAgentTask].self, from: data)
+            return try JSONDecoder().decode([FutureTaskItem].self, from: data)
         } catch {
             return []
         }
@@ -431,8 +434,19 @@ final class AgentTaskStore: ObservableObject {
             let data = try JSONEncoder().encode(futureTasks)
             UserDefaults.standard.set(data, forKey: Self.futureTasksStorageKey)
         } catch {
-            assertionFailure("Failed to persist future tasks: \(error)")
+            assertionFailure("Failed to persist future plans: \(error)")
         }
+    }
+}
+
+private extension String {
+    var firstLineTitle: String {
+        let firstLine = split(whereSeparator: \.isNewline).first.map(String.init) ?? self
+        let trimmed = firstLine.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > 28 else {
+            return trimmed.isEmpty ? "未命名事项" : trimmed
+        }
+        return "\(trimmed.prefix(28))..."
     }
 }
 

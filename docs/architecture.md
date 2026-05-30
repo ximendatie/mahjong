@@ -4,7 +4,7 @@ mahjong has three main layers:
 
 - Providers read local metadata and convert it into app-level models.
 - `AgentTaskStore` merges provider data, local overrides, runtime state, and
-  future task drafts.
+  future plan notes.
 - SwiftUI/AppKit views render the floating Mahjong-tile companion and mahjong
   Board.
 
@@ -12,7 +12,7 @@ mahjong has three main layers:
 
 - `AgentTask` is the normalized card shown in the board.
 - `AgentRuntime` represents a detected desktop app or terminal runtime.
-- `FutureAgentTask` stores local task drafts created by the user.
+- `FutureTaskItem` stores local future plans created by the user.
 
 ## Providers
 
@@ -46,13 +46,13 @@ crashing the app.
 - Deduplicates tasks and runtimes by stable IDs.
 - Applies local complete/archive overrides.
 - Moves completed tasks older than today into history.
-- Persists future task drafts in `UserDefaults`.
+- Persists future plans in `UserDefaults`.
 
 ## UI
 
 - `PetView` renders the floating companion and maps running session counts to
   Mahjong tile icons.
-- `BoardView` renders task columns, runtime status, and future task drafts.
+- `BoardView` renders task columns, runtime status, and future plans.
 - `PetWindowController` and `BoardWindowController` bridge SwiftUI views into
   macOS windows.
 

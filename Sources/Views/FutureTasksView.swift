@@ -1,92 +1,50 @@
+import AppKit
 import SwiftUI
 
 struct FutureTasksView: View {
     @ObservedObject var taskStore: AgentTaskStore
-    @State private var selectedAgent: FutureAgent = .codex
     @State private var title = ""
-    @State private var prompt = ""
-    @State private var modelHint = ""
-    @State private var scheduledAt = Calendar.current.date(byAdding: .hour, value: 1, to: Date()) ?? Date()
+    @State private var note = ""
 
     var body: some View {
-        VStack(spacing: 0) {
-            agentTabs
+        HStack(spacing: 0) {
+            quickCapture
+                .frame(width: 340)
             Divider()
-
-            HStack(spacing: 0) {
-                createForm
-                    .frame(width: 320)
-                Divider()
-                futureTaskList
-            }
+            taskList
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
-    private var agentTabs: some View {
-        HStack(spacing: 8) {
-            ForEach(FutureAgent.allCases) { agent in
-                Button {
-                    selectedAgent = agent
-                    if modelHint.isEmpty {
-                        modelHint = agent.modelPlaceholder
-                    }
-                } label: {
-                    HStack(spacing: 7) {
-                        Image(systemName: agent.systemImage)
-                            .frame(width: 16)
-                        Text(agent.title)
-                            .font(.system(size: 13, weight: .semibold))
-                    }
-                    .padding(.horizontal, 11)
-                    .frame(height: 30)
-                    .foregroundStyle(selectedAgent == agent ? .white : .primary)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(selectedAgent == agent ? Color.accentColor : Color.primary.opacity(0.07))
-                    )
-                }
-                .buttonStyle(.plain)
-            }
-
-            Spacer()
-        }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 12)
-        .onAppear {
-            if modelHint.isEmpty {
-                modelHint = selectedAgent.modelPlaceholder
-            }
-        }
-    }
-
-    private var createForm: some View {
+    private var quickCapture: some View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 3) {
-                Text("创建 \(selectedAgent.title) 任务")
+                Text("快速记录")
                     .font(.headline)
-                Text("仅保存到 mahjong 本地计划列表")
+                Text("保存未来打算做的计划，不绑定 Agent 或模型。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("标题")
+                Text("计划")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
-                TextField("例如：整理本周 Agent 进展", text: $title)
+                TextField("例如：整理第三阶段菜单栏方案", text: $title)
                     .textFieldStyle(.roundedBorder)
+                    .onSubmit(createTask)
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("任务内容")
+                Text("备注")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
-                TextEditor(text: $prompt)
+                TextEditor(text: $note)
                     .font(.system(size: 13))
                     .scrollContentBackground(.hidden)
                     .padding(6)
-                    .frame(minHeight: 118)
+                    .frame(minHeight: 160)
                     .background(
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
                             .fill(Color(nsColor: .textBackgroundColor).opacity(0.9))
@@ -97,32 +55,12 @@ struct FutureTasksView: View {
                     )
             }
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text("模型提示")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                TextField(selectedAgent.modelPlaceholder, text: $modelHint)
-                    .textFieldStyle(.roundedBorder)
-            }
-
-            DatePicker("计划时间", selection: $scheduledAt, displayedComponents: [.date, .hourAndMinute])
-                .datePickerStyle(.compact)
-
-            Button {
-                taskStore.createFutureTask(
-                    title: title,
-                    prompt: prompt,
-                    agent: selectedAgent,
-                    modelHint: modelHint,
-                    scheduledAt: scheduledAt
-                )
-                resetForm()
-            } label: {
-                Label("创建任务", systemImage: "plus")
+            Button(action: createTask) {
+                Label("记录计划", systemImage: "plus")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
-            .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .disabled(!canCreateTask)
 
             Spacer()
         }
@@ -131,14 +69,20 @@ struct FutureTasksView: View {
         .background(Color.primary.opacity(0.025))
     }
 
-    private var futureTaskList: some View {
-        let tasks = taskStore.futureTasks(for: selectedAgent)
+    private var taskList: some View {
+        let tasks = taskStore.sortedFutureTasks()
+        let openCount = tasks.filter { !$0.isCompleted }.count
 
         return ScrollView {
             LazyVStack(spacing: 10) {
-                HStack {
-                    Text("\(selectedAgent.title) 未来任务")
-                        .font(.headline)
+                HStack(alignment: .firstTextBaseline) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("未来计划")
+                            .font(.headline)
+                        Text("\(openCount) 个待处理，\(tasks.count - openCount) 个已完成")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                     Spacer()
                     Text("\(tasks.count)")
                         .font(.caption.weight(.semibold))
@@ -150,13 +94,23 @@ struct FutureTasksView: View {
                 .padding(.bottom, 2)
 
                 ForEach(tasks) { task in
-                    FutureTaskCardView(task: task, isPrivacyModeEnabled: taskStore.isPrivacyModeEnabled) {
-                        taskStore.deleteFutureTask(id: task.id)
-                    }
+                    FutureTaskCardView(
+                        task: task,
+                        isPrivacyModeEnabled: taskStore.isPrivacyModeEnabled,
+                        onToggle: {
+                            taskStore.setFutureTaskCompleted(id: task.id, isCompleted: !task.isCompleted)
+                        },
+                        onCopy: {
+                            copyTask(task)
+                        },
+                        onDelete: {
+                            taskStore.deleteFutureTask(id: task.id)
+                        }
+                    )
                 }
 
                 if tasks.isEmpty {
-                    EmptyFutureTasksView(agent: selectedAgent)
+                    EmptyFutureTasksView()
                 }
             }
             .padding(18)
@@ -164,59 +118,88 @@ struct FutureTasksView: View {
         }
     }
 
-    private func resetForm() {
+    private var canCreateTask: Bool {
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func createTask() {
+        guard canCreateTask else {
+            return
+        }
+
+        taskStore.createFutureTask(title: title, note: note)
         title = ""
-        prompt = ""
-        modelHint = selectedAgent.modelPlaceholder
-        scheduledAt = Calendar.current.date(byAdding: .hour, value: 1, to: Date()) ?? Date()
+        note = ""
+    }
+
+    private func copyTask(_ task: FutureTaskItem) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        let text = task.note.isEmpty ? task.title : "\(task.title)\n\n\(task.note)"
+        pasteboard.setString(text, forType: .string)
     }
 }
 
 struct FutureTaskCardView: View {
-    let task: FutureAgentTask
+    let task: FutureTaskItem
     let isPrivacyModeEnabled: Bool
+    let onToggle: () -> Void
+    let onCopy: () -> Void
     let onDelete: () -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Color.accentColor.opacity(0.14))
-                Image(systemName: task.agent.systemImage)
+            Button(action: onToggle) {
+                Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(task.isCompleted ? Color.green : Color.secondary)
+                    .frame(width: 28, height: 28)
             }
-            .frame(width: 42, height: 42)
+            .buttonStyle(.plain)
+            .help(task.isCompleted ? "标记为待处理" : "标记为完成")
 
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text(isPrivacyModeEnabled ? "Private future task" : task.title)
+                    Text(isPrivacyModeEnabled ? "Private future plan" : task.title)
                         .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(task.isCompleted ? .secondary : .primary)
+                        .strikethrough(task.isCompleted)
                         .lineLimit(2)
                     Spacer()
+                    Button(action: onCopy) {
+                        Image(systemName: "doc.on.doc")
+                    }
+                    .buttonStyle(.borderless)
+                    .help("复制计划")
+
                     Button(role: .destructive, action: onDelete) {
                         Image(systemName: "trash")
                     }
                     .buttonStyle(.borderless)
-                    .help("删除未来任务")
+                    .help("删除计划")
                 }
 
-                Text(isPrivacyModeEnabled ? "Prompt hidden by privacy mode" : task.prompt)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(3)
+                if !task.note.isEmpty {
+                    Text(isPrivacyModeEnabled ? "Note hidden by privacy mode" : task.note)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(4)
+                }
 
-                VStack(spacing: 5) {
-                    metadataRow("Agent", task.agent.title)
-                    metadataRow("Model", isPrivacyModeEnabled ? "Hidden" : (task.modelHint.isEmpty ? task.agent.modelPlaceholder : task.modelHint))
-                    metadataRow("Scheduled", Self.scheduleFormatter.string(from: task.scheduledAt))
+                HStack(spacing: 10) {
+                    metadataPill(task.isCompleted ? "已完成" : "待处理")
+                    Text(Self.dateFormatter.string(from: task.updatedAt))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Spacer()
                 }
             }
         }
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.9))
+                .fill(Color(nsColor: .controlBackgroundColor).opacity(task.isCompleted ? 0.55 : 0.9))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -224,20 +207,16 @@ struct FutureTaskCardView: View {
         )
     }
 
-    private func metadataRow(_ label: String, _ value: String) -> some View {
-        HStack {
-            Text(label)
-                .foregroundStyle(.secondary)
-            Spacer(minLength: 8)
-            Text(value)
-                .fontWeight(.medium)
-                .lineLimit(1)
-                .truncationMode(.middle)
-        }
-        .font(.caption2)
+    private func metadataPill(_ text: String) -> some View {
+        Text(text)
+            .font(.caption2.weight(.medium))
+            .foregroundStyle(task.isCompleted ? Color.secondary : Color.accentColor)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .background(Capsule().fill((task.isCompleted ? Color.secondary : Color.accentColor).opacity(0.12)))
     }
 
-    private static let scheduleFormatter: DateFormatter = {
+    private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
@@ -246,14 +225,12 @@ struct FutureTaskCardView: View {
 }
 
 struct EmptyFutureTasksView: View {
-    let agent: FutureAgent
-
     var body: some View {
         VStack(spacing: 8) {
-            Image(systemName: "calendar")
+            Image(systemName: "checklist")
                 .font(.title3)
                 .foregroundStyle(.secondary)
-            Text("暂无 \(agent.title) 未来任务")
+            Text("暂无未来计划")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -261,4 +238,3 @@ struct EmptyFutureTasksView: View {
         .padding(.vertical, 72)
     }
 }
-

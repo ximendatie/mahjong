@@ -18,7 +18,7 @@ current workload is visible at a glance.
 - Opens a mahjong Board with running, completed, and archived task cards.
 - Detects supported desktop apps and terminal agent processes.
 - Reads local session metadata for supported providers.
-- Lets you draft "future tasks" locally so you can capture work for later.
+- Lets you draft future plans locally so you can capture work for later.
 
 ## Run
 

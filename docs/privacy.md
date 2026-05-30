@@ -20,12 +20,12 @@ Task cards are intended to show compact metadata such as title, provider,
 status, model, token usage, and recent activity time. The app avoids displaying
 full conversation bodies by default.
 
-Privacy mode hides task titles, summaries, model hints, token usage, future-task
-prompt text, and detailed diagnostic paths in the UI.
+Privacy mode hides task titles, summaries, model hints, token usage, future-plan
+notes, and detailed diagnostic paths in the UI.
 
 ## What mahjong Does Not Do
 
-- It does not send prompts, session files, or task data to a server.
+- It does not send prompts, session files, future plans, or task data to a server.
 - It does not write to provider config, session, or cache files.
 - It does not send messages to providers.
 - It does not execute commands on behalf of providers.

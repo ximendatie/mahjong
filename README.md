@@ -1,5 +1,7 @@
 # mahjong
 
+[中文 README](README.zh-CN.md)
+
 mahjong is a tiny macOS desktop companion for watching local AI agent work
 across desktop apps and terminal sessions.
 

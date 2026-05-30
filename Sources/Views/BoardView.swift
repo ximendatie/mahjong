@@ -6,6 +6,7 @@ struct BoardView: View {
     @State private var selectedTab = BoardTab.sessions
     @State private var selectedTaskID: String?
     @State private var showsArchivedTasks = false
+    @State private var showsArchivedFutureTasks = true
 
     var body: some View {
         VStack(spacing: 0) {
@@ -42,6 +43,17 @@ struct BoardView: View {
                 taskStore.refreshNow()
             } label: {
                 Label("刷新", systemImage: "arrow.clockwise")
+            }
+
+            if selectedTab == .futureTasks {
+                Button {
+                    showsArchivedFutureTasks.toggle()
+                } label: {
+                    Label(
+                        showsArchivedFutureTasks ? "隐藏归档" : "显示归档",
+                        systemImage: showsArchivedFutureTasks ? "eye.slash" : "eye"
+                    )
+                }
             }
 
             if selectedTab == .sessions {
@@ -166,7 +178,10 @@ struct BoardView: View {
         case .agents:
             AgentRuntimeListView(runtimes: taskStore.runtimes)
         case .futureTasks:
-            FutureTasksView(taskStore: taskStore)
+            FutureTasksView(
+                taskStore: taskStore,
+                showsArchivedPlans: $showsArchivedFutureTasks
+            )
         case .settings:
             SettingsView(taskStore: taskStore)
         }

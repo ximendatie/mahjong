@@ -3,6 +3,7 @@ import SwiftUI
 
 struct FutureTasksView: View {
     @ObservedObject var taskStore: AgentTaskStore
+    @Binding var showsArchivedPlans: Bool
     @State private var title = ""
     @State private var note = ""
 
@@ -11,7 +12,7 @@ struct FutureTasksView: View {
             quickCapture
                 .frame(width: 340)
             Divider()
-            taskList
+            taskColumns
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
@@ -69,29 +70,49 @@ struct FutureTasksView: View {
         .background(Color.primary.opacity(0.025))
     }
 
-    private var taskList: some View {
+    private var taskColumns: some View {
         let tasks = taskStore.sortedFutureTasks()
-        let openCount = tasks.filter { !$0.isCompleted }.count
+        let openTasks = tasks.filter { !$0.isCompleted }
+        let archivedTasks = tasks.filter(\.isCompleted)
 
-        return ScrollView {
-            LazyVStack(spacing: 10) {
-                HStack(alignment: .firstTextBaseline) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("未来计划")
-                            .font(.headline)
-                        Text("\(openCount) 个待处理，\(tasks.count - openCount) 个已完成")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Text("\(tasks.count)")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .frame(minWidth: 24)
-                        .padding(.vertical, 3)
-                        .background(Capsule().fill(Color.primary.opacity(0.07)))
+        return VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                futureTaskColumn(
+                    title: "未来计划",
+                    subtitle: "\(openTasks.count) 个待处理，\(archivedTasks.count) 个已归档",
+                    tasks: openTasks,
+                    emptyTitle: "暂无待处理计划",
+                    count: openTasks.count
+                )
+                if showsArchivedPlans {
+                    Divider()
+                    futureTaskColumn(
+                        title: "已归档",
+                        subtitle: "\(archivedTasks.count) 个已完成计划",
+                        tasks: archivedTasks,
+                        emptyTitle: "暂无归档计划",
+                        count: archivedTasks.count
+                    )
                 }
-                .padding(.bottom, 2)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+    }
+
+    private func futureTaskColumn(
+        title: String,
+        subtitle: String,
+        tasks: [FutureTaskItem],
+        emptyTitle: String,
+        count: Int
+    ) -> some View {
+        ScrollView {
+            LazyVStack(spacing: 10) {
+                FutureTaskColumnHeader(
+                    title: title,
+                    subtitle: subtitle,
+                    count: count
+                )
 
                 ForEach(tasks) { task in
                     FutureTaskCardView(
@@ -110,12 +131,13 @@ struct FutureTasksView: View {
                 }
 
                 if tasks.isEmpty {
-                    EmptyFutureTasksView()
+                    EmptyFutureTasksView(title: emptyTitle)
                 }
             }
             .padding(18)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var canCreateTask: Bool {
@@ -188,7 +210,7 @@ struct FutureTaskCardView: View {
                 }
 
                 HStack(spacing: 10) {
-                    metadataPill(task.isCompleted ? "已完成" : "待处理")
+                    metadataPill(task.isCompleted ? "已归档" : "待处理")
                     Text(Self.dateFormatter.string(from: task.updatedAt))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
@@ -224,13 +246,42 @@ struct FutureTaskCardView: View {
     }()
 }
 
+struct FutureTaskColumnHeader: View {
+    let title: String
+    let subtitle: String
+    let count: Int
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.headline)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+            Spacer()
+            Text("\(count)")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .frame(minWidth: 24)
+                .padding(.vertical, 3)
+                .background(Capsule().fill(Color.primary.opacity(0.07)))
+        }
+        .padding(.bottom, 2)
+    }
+}
+
 struct EmptyFutureTasksView: View {
+    let title: String
+
     var body: some View {
         VStack(spacing: 8) {
             Image(systemName: "checklist")
                 .font(.title3)
                 .foregroundStyle(.secondary)
-            Text("暂无未来计划")
+            Text(title)
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

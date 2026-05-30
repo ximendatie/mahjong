@@ -66,6 +66,7 @@ final class CodexLocalProviderTests: XCTestCase {
 
     func testFetchTasksReadsSessionFilesWhenIndexIsStaleOrMissing() async throws {
         let sessionID = "22222222-3333-4444-5555-666666666666"
+        let now = ISO8601DateFormatter().string(from: Date())
         let sessionsDirectory = temporaryHome
             .appendingPathComponent(".codex", isDirectory: true)
             .appendingPathComponent("sessions", isDirectory: true)
@@ -75,10 +76,10 @@ final class CodexLocalProviderTests: XCTestCase {
         try FileManager.default.createDirectory(at: sessionsDirectory, withIntermediateDirectories: true)
 
         let session = """
-        {"timestamp":"2026-05-30T07:00:00Z","type":"session_meta","payload":{"id":"\(sessionID)","cwd":"\(temporaryHome.path)/mahjong","originator":"Codex Desktop"}}
-        {"timestamp":"2026-05-30T07:00:01Z","type":"turn_context","payload":{"cwd":"\(temporaryHome.path)/mahjong","model":"gpt-live"}}
-        {"timestamp":"2026-05-30T07:00:02Z","type":"event_msg","payload":{"type":"user_message","message":"Fix live detection\\n"}}
-        {"timestamp":"2026-05-30T07:00:03Z","type":"event_msg","payload":{"type":"task_started"}}
+        {"timestamp":"\(now)","type":"session_meta","payload":{"id":"\(sessionID)","cwd":"\(temporaryHome.path)/mahjong","originator":"Codex Desktop"}}
+        {"timestamp":"\(now)","type":"turn_context","payload":{"cwd":"\(temporaryHome.path)/mahjong","model":"gpt-live"}}
+        {"timestamp":"\(now)","type":"event_msg","payload":{"type":"user_message","message":"Fix live detection\\n"}}
+        {"timestamp":"\(now)","type":"event_msg","payload":{"type":"task_started"}}
         """
         let sessionURL = sessionsDirectory.appendingPathComponent("rollout-2026-05-30T15-00-00-\(sessionID).jsonl")
         try session.write(to: sessionURL, atomically: true, encoding: .utf8)

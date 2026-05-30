@@ -99,11 +99,11 @@ Diagnostics 应展示：
 
 | 优先级 | 工作项 | 原因 |
 | --- | --- | --- |
-| P0 | 引入 `AgentProviderDescriptor` | 将 Provider 元数据集中到一个地方。 |
-| P0 | 拆分 `BoardView.swift` | 降低 UI 变更的 Review 成本。 |
-| P0 | 增加 fixture 测试 | 防止上游 Provider schema 变化导致静默失效。 |
-| P0 | 增加状态置信度 | 区分确定事实和启发式推断。 |
-| P1 | 标准化 Provider ID | 改善去重、设置持久化和诊断展示。 |
+| Done | 引入 `AgentProviderDescriptor` | Provider 元数据已集中管理。 |
+| Done | 拆分 `BoardView.swift` | 主视图已拆成侧栏、任务列、任务卡、运行列表、设置和未来任务视图。 |
+| Done | 增加 fixture 测试 | Codex、Claude CLI、Claude Desktop、Hermes 均有本地数据夹具覆盖。 |
+| Done | 增加状态置信度 | 任务状态已区分 confirmed、inferred、stale、unknown。 |
+| Done | 标准化 Provider ID | 设置、诊断、任务和运行态均使用稳定 Provider ID。 |
 
 建议的 Provider descriptor 字段：
 
@@ -142,9 +142,10 @@ stateDiagram-v2
 
 验收标准：
 
-- 新增 Provider 不需要修改无关 UI 文件。
-- Parser 变更有 fixture 测试覆盖。
-- UI 能清晰展示不确定状态。
+- 已完成：新增 Provider 元数据集中在 `AgentProviderDescriptor`。
+- 已完成：新增 Provider 不需要修改无关 UI 文件。
+- 已完成：Parser 变更有 fixture 测试覆盖。
+- 已完成：UI 能展示状态置信度。
 
 ### 阶段 3：日常使用体验
 
@@ -260,8 +261,8 @@ stateDiagram-v2
 | --- | --- | --- |
 | 1 | 0.1.0 | Settings、Provider 开关、隐私模式、release zip 脚本已落地；README 截图待补 |
 | 2 | 0.1.1 | Provider Diagnostics 已落地；后续继续增强错误细节 |
-| 3 | 0.2.0 | `AgentProviderDescriptor`、UI 拆分 |
-| 4 | 0.2.1 | Claude 和 Hermes fixture 测试 |
+| 3 | 0.2.0 | `AgentProviderDescriptor`、UI 拆分已落地 |
+| 4 | 0.2.1 | Claude 和 Hermes fixture 测试已落地 |
 | 5 | 0.3.0 | 首次启动引导、Prompt Queue |
 | 6 | 0.3.1 | 通知、菜单栏模式 |
 | 7 | 0.4.0 | Provider 开发文档、good first issues |
@@ -275,12 +276,12 @@ stateDiagram-v2
 | Done | Add provider diagnostics panel |
 | Done | Add privacy mode |
 | P0 | Add screenshot and demo GIF to README |
-| P0 | Introduce `AgentProviderDescriptor` |
-| P1 | Split `BoardView` into smaller components |
+| Done | Introduce `AgentProviderDescriptor` |
+| Done | Split `BoardView` into smaller components |
 | P1 | Add first-run onboarding |
-| P1 | Add Claude provider fixture tests |
-| P1 | Add Claude Desktop provider fixture tests |
-| P1 | Add Hermes sqlite fixture tests |
+| Done | Add Claude provider fixture tests |
+| Done | Add Claude Desktop provider fixture tests |
+| Done | Add Hermes sqlite fixture tests |
 | P1 | Add provider development guide |
 | Done | Add GitHub release packaging script |
 | P2 | Add signed and notarized macOS release flow |

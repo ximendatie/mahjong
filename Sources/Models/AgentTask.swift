@@ -16,14 +16,32 @@ enum AgentTaskStatus: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
+enum AgentTaskConfidence: String, Codable, Sendable {
+    case confirmed
+    case inferred
+    case stale
+    case unknown
+
+    var title: String {
+        switch self {
+        case .confirmed: "Confirmed"
+        case .inferred: "Inferred"
+        case .stale: "Stale"
+        case .unknown: "Unknown"
+        }
+    }
+}
+
 struct AgentTask: Identifiable, Equatable, Sendable {
     let id: String
     var title: String
     var summary: String
     var agent: String
+    var providerID: AgentProviderID?
     var model: String
     var tokenUsage: Int
     var status: AgentTaskStatus
+    var confidence: AgentTaskConfidence
     var updatedAt: Date
     var openURL: URL?
 
@@ -32,9 +50,11 @@ struct AgentTask: Identifiable, Equatable, Sendable {
         title: String,
         summary: String,
         agent: String,
+        providerID: AgentProviderID? = nil,
         model: String,
         tokenUsage: Int,
         status: AgentTaskStatus,
+        confidence: AgentTaskConfidence = .unknown,
         updatedAt: Date = Date(),
         openURL: URL? = nil
     ) {
@@ -42,9 +62,11 @@ struct AgentTask: Identifiable, Equatable, Sendable {
         self.title = title
         self.summary = summary
         self.agent = agent
+        self.providerID = providerID
         self.model = model
         self.tokenUsage = tokenUsage
         self.status = status
+        self.confidence = confidence
         self.updatedAt = updatedAt
         self.openURL = openURL
     }

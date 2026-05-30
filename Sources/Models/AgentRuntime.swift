@@ -16,6 +16,7 @@ struct AgentRuntime: Identifiable, Equatable, Sendable {
     let id: String
     var name: String
     var provider: String
+    var providerID: AgentProviderID?
     var kind: AgentRuntimeKind
     var summary: String
     var processCount: Int
@@ -28,6 +29,7 @@ struct AgentRuntime: Identifiable, Equatable, Sendable {
         id: String,
         name: String,
         provider: String,
+        providerID: AgentProviderID? = nil,
         kind: AgentRuntimeKind,
         summary: String,
         processCount: Int = 1,
@@ -39,6 +41,7 @@ struct AgentRuntime: Identifiable, Equatable, Sendable {
         self.id = id
         self.name = name
         self.provider = provider
+        self.providerID = providerID
         self.kind = kind
         self.summary = summary
         self.processCount = processCount

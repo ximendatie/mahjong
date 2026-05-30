@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 
 struct TerminalAgentRuntimeProvider: AgentRuntimeProvider {
+    let providerID = AgentProviderID.terminalAgents
     let providerName = "Terminal Agents"
 
     func fetchRuntimes() async -> [AgentRuntime] {
@@ -51,6 +52,7 @@ struct TerminalAgentRuntimeProvider: AgentRuntimeProvider {
                     id: "terminal:codex",
                     name: "Codex CLI",
                     provider: "Codex",
+                    providerID: providerID,
                     kind: .terminal,
                     summary: "检测到 Codex 终端运行态；任务卡仍以 Codex session 为准",
                     processCount: codexCount,
@@ -65,6 +67,7 @@ struct TerminalAgentRuntimeProvider: AgentRuntimeProvider {
                     id: "terminal:claude",
                     name: "Claude CLI",
                     provider: "Claude",
+                    providerID: providerID,
                     kind: .terminal,
                     summary: "检测到 Claude 终端运行态；任务卡仍以 Claude session 为准",
                     processCount: claudeCount,
@@ -79,6 +82,7 @@ struct TerminalAgentRuntimeProvider: AgentRuntimeProvider {
                     id: "terminal:hermes",
                     name: "Hermes CLI",
                     provider: "Hermes",
+                    providerID: providerID,
                     kind: .terminal,
                     summary: "检测到 Hermes 终端运行态；任务卡从本地 Hermes state.db 读取",
                     processCount: hermesCount,
@@ -93,6 +97,7 @@ struct TerminalAgentRuntimeProvider: AgentRuntimeProvider {
                     id: "terminal:openclaw",
                     name: "OpenClaw Gateway",
                     provider: "OpenClaw",
+                    providerID: providerID,
                     kind: .terminal,
                     summary: "检测到 OpenClaw gateway/CLI 运行态；仅观测是否运行",
                     processCount: openClawCount,
@@ -106,6 +111,7 @@ struct TerminalAgentRuntimeProvider: AgentRuntimeProvider {
 }
 
 struct DesktopAppRuntimeProvider: AgentRuntimeProvider {
+    let providerID = AgentProviderID.desktopApps
     let providerName = "Desktop Apps"
 
     func fetchRuntimes() async -> [AgentRuntime] {
@@ -128,6 +134,7 @@ struct DesktopAppRuntimeProvider: AgentRuntimeProvider {
                 id: "desktop:chatgpt",
                 name: "ChatGPT Desktop",
                 provider: "OpenAI",
+                providerID: providerID,
                 kind: .desktopApp,
                 summary: "已运行；当前不安全解析对话任务粒度",
                 bundleIdentifier: bundleIdentifier,
@@ -138,6 +145,7 @@ struct DesktopAppRuntimeProvider: AgentRuntimeProvider {
                 id: "desktop:codex",
                 name: "Codex Desktop",
                 provider: "Codex",
+                providerID: providerID,
                 kind: .desktopApp,
                 summary: "已运行；任务卡从本地 Codex session 读取",
                 bundleIdentifier: bundleIdentifier,
@@ -148,6 +156,7 @@ struct DesktopAppRuntimeProvider: AgentRuntimeProvider {
                 id: "desktop:claude",
                 name: "Claude Desktop",
                 provider: "Claude",
+                providerID: providerID,
                 kind: .desktopApp,
                 summary: "已运行；任务卡从可用本地 session 记录读取",
                 bundleIdentifier: bundleIdentifier,
@@ -158,6 +167,7 @@ struct DesktopAppRuntimeProvider: AgentRuntimeProvider {
                 id: "desktop:openclaw",
                 name: "OpenClaw Desktop",
                 provider: "OpenClaw",
+                providerID: providerID,
                 kind: .desktopApp,
                 summary: "已运行；仅观测桌面端运行状态",
                 bundleIdentifier: bundleIdentifier,
@@ -168,6 +178,7 @@ struct DesktopAppRuntimeProvider: AgentRuntimeProvider {
                 id: "desktop:hermes",
                 name: "Hermes Agent",
                 provider: "Hermes",
+                providerID: providerID,
                 kind: .desktopApp,
                 summary: "已运行；任务卡从本地 Hermes state.db 读取",
                 bundleIdentifier: bundleIdentifier,

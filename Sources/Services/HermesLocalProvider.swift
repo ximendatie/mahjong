@@ -1,6 +1,7 @@
 import Foundation
 
 struct HermesLocalProvider: AgentTaskProvider {
+    let providerID = AgentProviderID.hermes
     let providerName = "Hermes"
 
     private let hermesDirectory: URL
@@ -122,9 +123,11 @@ struct HermesLocalProvider: AgentTaskProvider {
             title: title,
             summary: summary(source: source, status: status, endReason: row["end_reason"] as? String),
             agent: "Hermes",
+            providerID: providerID,
             model: model,
             tokenUsage: tokenUsage,
             status: status,
+            confidence: status == .running ? .inferred : (endedAt == nil && isStaleOpenSession ? .stale : .confirmed),
             updatedAt: updatedAt,
             openURL: hermesDirectory.appendingPathComponent("state.db")
         )

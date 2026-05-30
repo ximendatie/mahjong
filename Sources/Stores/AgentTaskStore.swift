@@ -15,6 +15,7 @@ final class AgentTaskStore: ObservableObject {
     private static let providerSettingsStorageKey = "local.mahjong.providerSettings"
     private static let privacyModeStorageKey = "local.mahjong.privacyMode"
 
+    private let descriptors: [AgentProviderDescriptor]
     private let providers: [AgentTaskProvider]
     private let runtimeProviders: [AgentRuntimeProvider]
     private var providerTasks: [AgentTask] = []
@@ -24,9 +25,11 @@ final class AgentTaskStore: ObservableObject {
     private var knownCompletedTaskIDs: Set<String> = []
 
     init(
+        descriptors: [AgentProviderDescriptor]? = nil,
         providers: [AgentTaskProvider]? = nil,
         runtimeProviders: [AgentRuntimeProvider]? = nil
     ) {
+        self.descriptors = descriptors ?? AgentProviderDescriptor.defaults()
         self.providers = providers ?? [
             CodexLocalProvider(),
             ClaudeLocalProvider(),
@@ -41,9 +44,9 @@ final class AgentTaskStore: ObservableObject {
         tasks = []
         runtimes = []
         futureTasks = Self.loadFutureTasks()
-        let loadedProviderSettings = Self.loadProviderSettings()
+        let loadedProviderSettings = Self.loadProviderSettings(descriptors: self.descriptors)
         providerSettings = loadedProviderSettings
-        diagnostics = initialDiagnostics(for: loadedProviderSettings)
+        diagnostics = initialDiagnostics(for: loadedProviderSettings, descriptors: self.descriptors)
         isPrivacyModeEnabled = UserDefaults.standard.bool(forKey: Self.privacyModeStorageKey)
         knownCompletedTaskIDs = Set(tasks.filter { $0.status == .completed }.map(\.id))
     }
@@ -179,7 +182,7 @@ final class AgentTaskStore: ObservableObject {
 
         await withTaskGroup(of: ProviderTaskFetch.self) { group in
             for provider in providers {
-                let id = providerID(forProviderName: provider.providerName)
+                let id = provider.providerID.rawValue
                 guard enabledIDs.contains(id) else {
                     continue
                 }
@@ -199,7 +202,7 @@ final class AgentTaskStore: ObservableObject {
 
         await withTaskGroup(of: ProviderRuntimeFetch.self) { group in
             for provider in runtimeProviders {
-                let id = providerID(forProviderName: provider.providerName)
+                let id = provider.providerID.rawValue
                 guard enabledIDs.contains(id) else {
                     continue
                 }
@@ -242,9 +245,11 @@ final class AgentTaskStore: ObservableObject {
     ) -> [ProviderDiagnostic] {
         let taskCounts = Dictionary(uniqueKeysWithValues: taskFetches.map { ($0.id, $0.tasks.count) })
         let runtimeCounts = Dictionary(uniqueKeysWithValues: runtimeFetches.map { ($0.id, $0.runtimes.count) })
+        let descriptorByID = Dictionary(uniqueKeysWithValues: descriptors.map { ($0.id.rawValue, $0) })
 
         return providerSettings.map { setting in
-            let dataPaths = diagnosticPaths(for: setting.id)
+            let descriptor = descriptorByID[setting.id]
+            let dataPaths = descriptor?.dataPaths ?? []
             guard setting.isEnabled else {
                 return ProviderDiagnostic(
                     id: setting.id,
@@ -384,22 +389,24 @@ final class AgentTaskStore: ObservableObject {
         }
     }
 
-    private static func loadProviderSettings() -> [AgentProviderSetting] {
+    private static func loadProviderSettings(descriptors: [AgentProviderDescriptor]) -> [AgentProviderSetting] {
         let defaults = UserDefaults.standard
-        let defaultsByID = Dictionary(uniqueKeysWithValues: defaultProviderSettings().map { ($0.id, $0) })
+        let defaultSettings = defaultProviderSettings(descriptors: descriptors)
+        let defaultsByID = Dictionary(uniqueKeysWithValues: defaultSettings.map { ($0.id, $0) })
         guard
             let data = defaults.data(forKey: providerSettingsStorageKey),
             let savedSettings = try? JSONDecoder().decode([AgentProviderSetting].self, from: data)
         else {
-            return defaultProviderSettings()
+            return defaultSettings
         }
 
-        var merged = defaultProviderSettings()
+        var merged = defaultSettings
         for saved in savedSettings {
-            guard let index = merged.firstIndex(where: { $0.id == saved.id }) else {
+            let savedID = migratedProviderID(saved.id)
+            guard let index = merged.firstIndex(where: { $0.id == savedID }) else {
                 continue
             }
-            let current = defaultsByID[saved.id] ?? merged[index]
+            let current = defaultsByID[savedID] ?? merged[index]
             merged[index] = AgentProviderSetting(
                 id: current.id,
                 displayName: current.displayName,
@@ -441,76 +448,14 @@ private struct ProviderRuntimeFetch: Sendable {
     let runtimes: [AgentRuntime]
 }
 
-private func providerID(forProviderName name: String) -> String {
-    switch name {
-    case "Codex": "codex"
-    case "Claude": "claude"
-    case "Claude Desktop": "claudeDesktop"
-    case "Hermes": "hermes"
-    case "Terminal Agents": "terminalAgents"
-    case "Desktop Apps": "desktopApps"
-    default:
-        name.lowercased().filter { $0.isLetter || $0.isNumber }
-    }
-}
-
-private func defaultProviderSettings() -> [AgentProviderSetting] {
-    [
+private func defaultProviderSettings(descriptors: [AgentProviderDescriptor]) -> [AgentProviderSetting] {
+    descriptors.map { descriptor in
         AgentProviderSetting(
-            id: "codex",
-            displayName: "Codex",
-            detail: "Reads local Codex session index and event streams.",
-            isEnabled: true
-        ),
-        AgentProviderSetting(
-            id: "claude",
-            displayName: "Claude CLI",
-            detail: "Reads local Claude project JSONL sessions.",
-            isEnabled: true
-        ),
-        AgentProviderSetting(
-            id: "claudeDesktop",
-            displayName: "Claude Desktop",
-            detail: "Reads Claude Desktop local agent session metadata.",
-            isEnabled: true
-        ),
-        AgentProviderSetting(
-            id: "hermes",
-            displayName: "Hermes",
-            detail: "Reads Hermes local state database.",
-            isEnabled: true
-        ),
-        AgentProviderSetting(
-            id: "terminalAgents",
-            displayName: "Terminal Agents",
-            detail: "Inspects local process metadata from ps.",
-            isEnabled: true
-        ),
-        AgentProviderSetting(
-            id: "desktopApps",
-            displayName: "Desktop Apps",
-            detail: "Observes supported running macOS app bundle identifiers.",
-            isEnabled: true
+            id: descriptor.id.rawValue,
+            displayName: descriptor.displayName,
+            detail: descriptor.detail,
+            isEnabled: descriptor.defaultEnabled
         )
-    ]
-}
-
-private func diagnosticPaths(for providerID: String) -> [String] {
-    let home = FileManager.default.homeDirectoryForCurrentUser.path
-    switch providerID {
-    case "codex":
-        return ["\(home)/.codex/session_index.jsonl", "\(home)/.codex/sessions"]
-    case "claude":
-        return ["\(home)/.claude/projects"]
-    case "claudeDesktop":
-        return [
-            "\(home)/Library/Application Support/Claude-3p/local-agent-mode-sessions",
-            "\(home)/Library/Application Support/Claude-3p/claude-code-sessions"
-        ]
-    case "hermes":
-        return ["\(home)/.hermes/state.db"]
-    default:
-        return []
     }
 }
 
@@ -518,14 +463,28 @@ private func pathExists(_ path: String) -> Bool {
     FileManager.default.fileExists(atPath: path)
 }
 
-private func initialDiagnostics(for settings: [AgentProviderSetting]) -> [ProviderDiagnostic] {
-    settings.map { setting in
+private func migratedProviderID(_ id: String) -> String {
+    switch id {
+    case "claude": AgentProviderID.claudeCLI.rawValue
+    case "claudeDesktop": AgentProviderID.claudeDesktop.rawValue
+    case "terminalAgents": AgentProviderID.terminalAgents.rawValue
+    case "desktopApps": AgentProviderID.desktopApps.rawValue
+    default: id
+    }
+}
+
+private func initialDiagnostics(
+    for settings: [AgentProviderSetting],
+    descriptors: [AgentProviderDescriptor]
+) -> [ProviderDiagnostic] {
+    let descriptorByID = Dictionary(uniqueKeysWithValues: descriptors.map { ($0.id.rawValue, $0) })
+    return settings.map { setting in
         ProviderDiagnostic(
             id: setting.id,
             displayName: setting.displayName,
             status: setting.isEnabled ? .noData : .disabled,
             message: setting.isEnabled ? "Not checked yet." : "Provider is turned off in Settings.",
-            dataPaths: diagnosticPaths(for: setting.id),
+            dataPaths: descriptorByID[setting.id]?.dataPaths ?? [],
             lastCheckedAt: nil
         )
     }

@@ -138,6 +138,7 @@ final class AgentTaskStoreTests: XCTestCase {
 }
 
 private struct MockTaskProvider: AgentTaskProvider {
+    var providerID = AgentProviderID.codex
     var providerName = "Codex"
     let tasks: [AgentTask]
 
@@ -147,6 +148,7 @@ private struct MockTaskProvider: AgentTaskProvider {
 }
 
 private struct MockRuntimeProvider: AgentRuntimeProvider {
+    let providerID = AgentProviderID.terminalAgents
     let providerName = "Terminal Agents"
     let runtimes: [AgentRuntime]
 

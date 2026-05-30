@@ -1,6 +1,7 @@
 import Foundation
 
 struct ClaudeDesktopLocalProvider: AgentTaskProvider {
+    let providerID = AgentProviderID.claudeDesktop
     let providerName = "Claude Desktop"
 
     private let applicationSupportDirectory: URL
@@ -81,9 +82,11 @@ struct ClaudeDesktopLocalProvider: AgentTaskProvider {
             title: title,
             summary: summary(kind: kind, status: status, cwd: cwd),
             agent: "Claude Desktop",
+            providerID: providerID,
             model: model,
             tokenUsage: readTokenUsage(metadataURL: url),
             status: status,
+            confidence: isRunning ? .confirmed : .inferred,
             updatedAt: updatedAt,
             openURL: url
         )

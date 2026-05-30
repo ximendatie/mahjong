@@ -1,6 +1,7 @@
 import Foundation
 
 struct ClaudeLocalProvider: AgentTaskProvider {
+    let providerID = AgentProviderID.claudeCLI
     let providerName = "Claude"
 
     private let projectsDirectory: URL
@@ -88,9 +89,11 @@ struct ClaudeLocalProvider: AgentTaskProvider {
             title: title ?? folderName,
             summary: status == .running ? "Claude 本机会话最近有用户输入，可能正在处理" : "Claude 本机会话最近活动",
             agent: "Claude",
+            providerID: providerID,
             model: model ?? "unknown",
             tokenUsage: totalTokens,
             status: status,
+            confidence: status == .running ? .inferred : .inferred,
             updatedAt: updatedAt,
             openURL: url
         )

@@ -1,6 +1,7 @@
 import Foundation
 
 struct CodexLocalProvider: AgentTaskProvider {
+    let providerID = AgentProviderID.codex
     let providerName = "Codex"
 
     private static let runningActivityWindow: TimeInterval = 30 * 60
@@ -50,9 +51,11 @@ struct CodexLocalProvider: AgentTaskProvider {
                     isRunning: isRunning
                 ),
                 agent: "Codex",
+                providerID: providerID,
                 model: metadata.model ?? "unknown",
                 tokenUsage: metadata.totalTokens,
                 status: isRunning ? .running : status(for: updatedAt, completed: true),
+                confidence: confidence(for: metadata, isRunning: isRunning),
                 updatedAt: updatedAt,
                 openURL: fileURL
             )
@@ -69,9 +72,11 @@ struct CodexLocalProvider: AgentTaskProvider {
                 title: entry.threadName,
                 summary: "Codex 会话已记录，未找到本地事件流",
                 agent: "Codex",
+                providerID: providerID,
                 model: "unknown",
                 tokenUsage: 0,
                 status: status(for: entry.updatedAt, completed: true),
+                confidence: .unknown,
                 updatedAt: entry.updatedAt
             )
         }
@@ -223,6 +228,17 @@ struct CodexLocalProvider: AgentTaskProvider {
         }
 
         return Date().timeIntervalSince(updatedAt) < Self.runningActivityWindow
+    }
+
+    private func confidence(for metadata: CodexSessionMetadata, isRunning: Bool) -> AgentTaskConfidence {
+        switch metadata.lastTaskEvent {
+        case "task_complete":
+            return .confirmed
+        case "task_started":
+            return isRunning ? .confirmed : .stale
+        default:
+            return .unknown
+        }
     }
 
     private func fileModifiedAt(_ url: URL) -> Date? {

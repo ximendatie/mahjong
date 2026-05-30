@@ -8,6 +8,7 @@ final class AgentTaskStoreTests: XCTestCase {
         UserDefaults.standard.removeObject(forKey: "local.mahjong.futureTasks")
         UserDefaults.standard.removeObject(forKey: "local.mahjong.providerSettings")
         UserDefaults.standard.removeObject(forKey: "local.mahjong.privacyMode")
+        UserDefaults.standard.removeObject(forKey: "local.mahjong.menuBarMode")
     }
 
     func testRefreshDeduplicatesTasksAndRuntimes() async throws {
@@ -144,6 +145,17 @@ final class AgentTaskStoreTests: XCTestCase {
         store.createFutureTask(title: "", note: "记录一个未来想法\n第二行细节")
 
         XCTAssertEqual(store.futureTasks.first?.title, "记录一个未来想法")
+    }
+
+    func testMenuBarModeDefaultsOnAndPersists() {
+        let store = AgentTaskStore(providers: [], runtimeProviders: [])
+
+        XCTAssertTrue(store.isMenuBarEnabled)
+
+        store.setMenuBarEnabled(false)
+
+        let reloadedStore = AgentTaskStore(providers: [], runtimeProviders: [])
+        XCTAssertFalse(reloadedStore.isMenuBarEnabled)
     }
 
     private func waitUntil(

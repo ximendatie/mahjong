@@ -58,7 +58,7 @@ final class ChatGPTLocalProviderTests: XCTestCase {
         XCTAssertEqual(task.summary, "ChatGPT Desktop 正在生成响应")
     }
 
-    func testRunningChatGPTWithoutAccessibilityExplainsPermissionLimit() async throws {
+    func testRunningChatGPTWithoutConversationActivityDoesNotCreateTask() async throws {
         let provider = ChatGPTLocalProvider(
             homeDirectory: temporaryHome,
             runningAppSnapshot: {
@@ -74,9 +74,29 @@ final class ChatGPTLocalProviderTests: XCTestCase {
 
         let tasks = await provider.fetchTasks()
 
+        XCTAssertTrue(tasks.isEmpty)
+    }
+
+    func testRunningChatGPTWithRecentConversationCreatesCompletedTask() async throws {
+        try writeConversationCache(modifiedAt: Date())
+        let provider = ChatGPTLocalProvider(
+            homeDirectory: temporaryHome,
+            runningAppSnapshot: {
+                ChatGPTRunningApp(
+                    pid: 123,
+                    bundleIdentifier: "com.openai.chat",
+                    localizedName: "ChatGPT"
+                )
+            },
+            isGeneratingResponse: { _ in false },
+            isAccessibilityTrusted: { false }
+        )
+
+        let tasks = await provider.fetchTasks()
+
         let task = try XCTUnwrap(tasks.first)
         XCTAssertEqual(task.status, .completed)
-        XCTAssertEqual(task.summary, "ChatGPT Desktop 已运行；授权辅助功能后可识别生成中")
+        XCTAssertEqual(task.summary, "ChatGPT Desktop 已运行；最近有本地活动")
     }
 
     private func writeConversationCache(modifiedAt: Date) throws {

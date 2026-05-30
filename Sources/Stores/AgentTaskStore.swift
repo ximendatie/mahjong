@@ -9,11 +9,13 @@ final class AgentTaskStore: ObservableObject {
     @Published private(set) var providerSettings: [AgentProviderSetting]
     @Published private(set) var diagnostics: [ProviderDiagnostic]
     @Published private(set) var isPrivacyModeEnabled: Bool
+    @Published private(set) var isMenuBarEnabled: Bool
 
     private static let futureTasksStorageKey = "local.mahjong.futureTasks"
     private static let legacyFutureTasksStorageKey = "local.agentspet.futureTasks"
     private static let providerSettingsStorageKey = "local.mahjong.providerSettings"
     private static let privacyModeStorageKey = "local.mahjong.privacyMode"
+    private static let menuBarModeStorageKey = "local.mahjong.menuBarMode"
 
     private let descriptors: [AgentProviderDescriptor]
     private let providers: [AgentTaskProvider]
@@ -49,6 +51,7 @@ final class AgentTaskStore: ObservableObject {
         providerSettings = loadedProviderSettings
         diagnostics = initialDiagnostics(for: loadedProviderSettings, descriptors: self.descriptors)
         isPrivacyModeEnabled = UserDefaults.standard.bool(forKey: Self.privacyModeStorageKey)
+        isMenuBarEnabled = UserDefaults.standard.object(forKey: Self.menuBarModeStorageKey) as? Bool ?? true
         knownCompletedTaskIDs = Set(tasks.filter { $0.status == .completed }.map(\.id))
     }
 
@@ -81,6 +84,11 @@ final class AgentTaskStore: ObservableObject {
     func setPrivacyModeEnabled(_ isEnabled: Bool) {
         isPrivacyModeEnabled = isEnabled
         UserDefaults.standard.set(isEnabled, forKey: Self.privacyModeStorageKey)
+    }
+
+    func setMenuBarEnabled(_ isEnabled: Bool) {
+        isMenuBarEnabled = isEnabled
+        UserDefaults.standard.set(isEnabled, forKey: Self.menuBarModeStorageKey)
     }
 
     func tasks(for status: AgentTaskStatus) -> [AgentTask] {

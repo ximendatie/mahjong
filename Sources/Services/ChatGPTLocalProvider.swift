@@ -43,12 +43,12 @@ struct ChatGPTLocalProvider: AgentTaskProvider {
             latestConversationActivity(in: applicationSupportDirectory)
         }.value
 
-        guard runningApp != nil || latestActivityAt != nil else {
+        let accessibilityTrusted = isAccessibilityTrusted()
+        let isGenerating = runningApp.map { accessibilityTrusted && isGeneratingResponse($0.pid) } ?? false
+        guard isGenerating || latestActivityAt != nil else {
             return []
         }
 
-        let accessibilityTrusted = isAccessibilityTrusted()
-        let isGenerating = runningApp.map { accessibilityTrusted && isGeneratingResponse($0.pid) } ?? false
         let updatedAt = isGenerating ? Date() : (latestActivityAt ?? Date())
         let status = taskStatus(
             isGenerating: isGenerating,
@@ -62,8 +62,7 @@ struct ChatGPTLocalProvider: AgentTaskProvider {
                 summary: summary(
                     runningApp: runningApp,
                     latestActivityAt: latestActivityAt,
-                    isGenerating: isGenerating,
-                    accessibilityTrusted: accessibilityTrusted
+                    isGenerating: isGenerating
                 ),
                 agent: "ChatGPT",
                 providerID: providerID,
@@ -86,23 +85,14 @@ struct ChatGPTLocalProvider: AgentTaskProvider {
     private func summary(
         runningApp: ChatGPTRunningApp?,
         latestActivityAt: Date?,
-        isGenerating: Bool,
-        accessibilityTrusted: Bool
+        isGenerating: Bool
     ) -> String {
         if isGenerating {
             return "ChatGPT Desktop 正在生成响应"
         }
 
-        if runningApp != nil && !accessibilityTrusted {
-            return "ChatGPT Desktop 已运行；授权辅助功能后可识别生成中"
-        }
-
         if runningApp != nil, latestActivityAt != nil {
             return "ChatGPT Desktop 已运行；最近有本地活动"
-        }
-
-        if runningApp != nil {
-            return "ChatGPT Desktop 已运行"
         }
 
         return "ChatGPT Desktop 最近有本地活动"

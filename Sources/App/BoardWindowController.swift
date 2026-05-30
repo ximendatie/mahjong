@@ -36,12 +36,12 @@ final class BoardWindowController: NSObject, NSWindowDelegate {
             isShowing = false
             window.orderOut(nil)
         } else {
-            isShowing = true
             show()
         }
     }
 
-    private func show() {
+    func show() {
+        isShowing = true
         DispatchQueue.main.async { [weak self] in
             guard let self, self.isShowing else {
                 return

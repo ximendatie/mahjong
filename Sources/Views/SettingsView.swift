@@ -36,6 +36,10 @@ struct SettingsView: View {
                 taskStore.setPrivacyModeEnabled(isEnabled)
             }
 
+            MenuBarToggleRow(isEnabled: taskStore.isMenuBarEnabled) { isEnabled in
+                taskStore.setMenuBarEnabled(isEnabled)
+            }
+
             LazyVGrid(columns: providerColumns, alignment: .leading, spacing: 10) {
                 ForEach(taskStore.providerSettings) { setting in
                     ProviderToggleRow(setting: setting) { isEnabled in
@@ -87,6 +91,43 @@ struct SettingsView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
+    }
+}
+
+struct MenuBarToggleRow: View {
+    let isEnabled: Bool
+    let onChange: (Bool) -> Void
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 14) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("菜单栏模式")
+                    .font(.system(size: 14, weight: .semibold))
+                Text("在菜单栏显示运行数量，并提供打开 Board、刷新和退出入口。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 16)
+
+            Toggle("", isOn: Binding(
+                get: { isEnabled },
+                set: { onChange($0) }
+            ))
+            .labelsHidden()
+            .toggleStyle(.switch)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 74, alignment: .center)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.9))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+        )
     }
 }
 

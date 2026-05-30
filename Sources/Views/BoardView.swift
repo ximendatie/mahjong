@@ -36,6 +36,7 @@ struct BoardView: View {
 
             runningBadge
             runtimeBadge
+            privacyBadge
 
             Button {
                 taskStore.refreshNow()
@@ -99,14 +100,45 @@ struct BoardView: View {
         .background(Capsule().fill(Color.primary.opacity(0.07)))
     }
 
+    @ViewBuilder
+    private var privacyBadge: some View {
+        if taskStore.isPrivacyModeEnabled {
+            HStack(spacing: 6) {
+                Image(systemName: "eye.slash")
+                    .font(.caption)
+                Text("privacy")
+                    .font(.caption.weight(.medium))
+            }
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Capsule().fill(Color.primary.opacity(0.07)))
+        }
+    }
+
     private var columns: some View {
         HStack(spacing: 0) {
-            TaskColumnView(status: .running, tasks: taskStore.tasks(for: .running), selectedTaskID: $selectedTaskID)
+            TaskColumnView(
+                status: .running,
+                tasks: taskStore.tasks(for: .running),
+                isPrivacyModeEnabled: taskStore.isPrivacyModeEnabled,
+                selectedTaskID: $selectedTaskID
+            )
             Divider()
-            TaskColumnView(status: .completed, tasks: taskStore.tasks(for: .completed), selectedTaskID: $selectedTaskID)
+            TaskColumnView(
+                status: .completed,
+                tasks: taskStore.tasks(for: .completed),
+                isPrivacyModeEnabled: taskStore.isPrivacyModeEnabled,
+                selectedTaskID: $selectedTaskID
+            )
             if showsArchivedTasks {
                 Divider()
-                TaskColumnView(status: .history, tasks: taskStore.tasks(for: .history), selectedTaskID: $selectedTaskID)
+                TaskColumnView(
+                    status: .history,
+                    tasks: taskStore.tasks(for: .history),
+                    isPrivacyModeEnabled: taskStore.isPrivacyModeEnabled,
+                    selectedTaskID: $selectedTaskID
+                )
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -121,6 +153,8 @@ struct BoardView: View {
             AgentRuntimeListView(runtimes: taskStore.runtimes)
         case .futureTasks:
             FutureTasksView(taskStore: taskStore)
+        case .settings:
+            SettingsView(taskStore: taskStore)
         }
     }
 }
@@ -129,6 +163,7 @@ private enum BoardTab: String, CaseIterable, Identifiable {
     case sessions
     case agents
     case futureTasks
+    case settings
 
     var id: String { rawValue }
 
@@ -137,6 +172,7 @@ private enum BoardTab: String, CaseIterable, Identifiable {
         case .sessions: "Session 任务"
         case .agents: "运行 Agent"
         case .futureTasks: "未来任务"
+        case .settings: "设置"
         }
     }
 
@@ -145,6 +181,7 @@ private enum BoardTab: String, CaseIterable, Identifiable {
         case .sessions: "rectangle.3.group"
         case .agents: "cpu"
         case .futureTasks: "calendar.badge.plus"
+        case .settings: "switch.2"
         }
     }
 }
@@ -199,6 +236,7 @@ private struct BoardSidebarView: View {
 private struct TaskColumnView: View {
     let status: AgentTaskStatus
     let tasks: [AgentTask]
+    let isPrivacyModeEnabled: Bool
     @Binding var selectedTaskID: String?
 
     var body: some View {
@@ -220,7 +258,11 @@ private struct TaskColumnView: View {
             ScrollView {
                 LazyVStack(spacing: 10) {
                     ForEach(tasks) { task in
-                        TaskCardView(task: task, isSelected: selectedTaskID == task.id)
+                        TaskCardView(
+                            task: task,
+                            isSelected: selectedTaskID == task.id,
+                            isPrivacyModeEnabled: isPrivacyModeEnabled
+                        )
                             .onTapGesture(count: 2) {
                                 selectedTaskID = task.id
                                 OpenTargetHandler.open(task)
@@ -245,6 +287,7 @@ private struct TaskColumnView: View {
 private struct TaskCardView: View {
     let task: AgentTask
     let isSelected: Bool
+    let isPrivacyModeEnabled: Bool
 
     var body: some View {
         HStack(spacing: 0) {
@@ -255,10 +298,10 @@ private struct TaskCardView: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .top, spacing: 12) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(task.title)
+                        Text(isPrivacyModeEnabled ? "Private \(task.agent) session" : task.title)
                             .font(.system(size: 14, weight: .semibold))
                             .lineLimit(2)
-                        Text(task.summary)
+                        Text(isPrivacyModeEnabled ? "Details hidden by privacy mode" : task.summary)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .lineLimit(2)
@@ -271,8 +314,8 @@ private struct TaskCardView: View {
 
                 VStack(spacing: 5) {
                     metadataRow("Agent", task.agent)
-                    metadataRow("Model", task.model)
-                    metadataRow("Tokens", Formatters.tokens(task.tokenUsage))
+                    metadataRow("Model", isPrivacyModeEnabled ? "Hidden" : task.model)
+                    metadataRow("Tokens", isPrivacyModeEnabled ? "Hidden" : Formatters.tokens(task.tokenUsage))
                 }
             }
             .padding(12)
@@ -486,6 +529,258 @@ private struct AgentRuntimeListView: View {
     }
 }
 
+private struct SettingsView: View {
+    @ObservedObject var taskStore: AgentTaskStore
+
+    var body: some View {
+        ScrollView {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: 20) {
+                    settingsSection
+                        .frame(minWidth: 420, maxWidth: 620, alignment: .topLeading)
+                    diagnosticsSection
+                        .frame(minWidth: 360, maxWidth: .infinity, alignment: .topLeading)
+                }
+
+                VStack(alignment: .leading, spacing: 22) {
+                    settingsSection
+                    diagnosticsSection
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 22)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var settingsSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            sectionHeader(
+                title: "隐私与 Provider",
+                subtitle: "控制 mahjong 可以读取哪些本地来源，以及共享屏幕时显示多少信息。"
+            )
+
+            PrivacyToggleRow(isEnabled: taskStore.isPrivacyModeEnabled) { isEnabled in
+                taskStore.setPrivacyModeEnabled(isEnabled)
+            }
+
+            LazyVGrid(columns: providerColumns, alignment: .leading, spacing: 10) {
+                ForEach(taskStore.providerSettings) { setting in
+                    ProviderToggleRow(setting: setting) { isEnabled in
+                        taskStore.setProviderEnabled(id: setting.id, isEnabled: isEnabled)
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+    }
+
+    private var diagnosticsSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .center, spacing: 12) {
+                sectionHeader(
+                    title: "Provider Diagnostics",
+                    subtitle: "刷新后显示本地路径、运行态和最近读取结果。"
+                )
+                Spacer()
+                Button {
+                    taskStore.refreshNow()
+                } label: {
+                    Label("刷新诊断", systemImage: "arrow.clockwise")
+                }
+                .buttonStyle(.bordered)
+            }
+
+            LazyVStack(spacing: 8) {
+                ForEach(taskStore.diagnostics) { diagnostic in
+                    DiagnosticRow(diagnostic: diagnostic, isPrivacyModeEnabled: taskStore.isPrivacyModeEnabled)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+    }
+
+    private var providerColumns: [GridItem] {
+        [
+            GridItem(.adaptive(minimum: 260, maximum: 320), spacing: 10, alignment: .topLeading)
+        ]
+    }
+
+    private func sectionHeader(title: String, subtitle: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.headline)
+            Text(subtitle)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+private struct PrivacyToggleRow: View {
+    let isEnabled: Bool
+    let onChange: (Bool) -> Void
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 14) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("隐私模式")
+                    .font(.system(size: 14, weight: .semibold))
+                Text("隐藏任务标题、摘要、模型和 token 数。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 16)
+
+            Toggle("", isOn: Binding(
+                get: { isEnabled },
+                set: { onChange($0) }
+            ))
+            .labelsHidden()
+            .toggleStyle(.switch)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 74, alignment: .center)
+        .background(settingsRowBackground)
+    }
+
+    private var settingsRowBackground: some View {
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .fill(Color(nsColor: .controlBackgroundColor).opacity(0.9))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+            )
+    }
+}
+
+private struct ProviderToggleRow: View {
+    let setting: AgentProviderSetting
+    let onChange: (Bool) -> Void
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 14) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(setting.displayName)
+                    .font(.system(size: 14, weight: .semibold))
+                    .lineLimit(1)
+                Text(setting.detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 12)
+
+            Toggle("", isOn: Binding(
+                get: { setting.isEnabled },
+                set: { onChange($0) }
+            ))
+            .labelsHidden()
+            .toggleStyle(.switch)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 86, alignment: .center)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.9))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+        )
+    }
+}
+
+private struct DiagnosticRow: View {
+    let diagnostic: ProviderDiagnostic
+    let isPrivacyModeEnabled: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                statusDot
+                Text(diagnostic.displayName)
+                    .font(.system(size: 14, weight: .semibold))
+                Text(diagnostic.status.title)
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(statusColor)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(statusColor.opacity(0.12)))
+                Spacer()
+                Text(lastCheckedText)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            Text(diagnostic.message)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            if !diagnostic.dataPaths.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(displayPaths, id: \.self) { path in
+                        Text(path)
+                            .font(.caption2.monospaced())
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.9))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+        )
+    }
+
+    private var statusDot: some View {
+        Circle()
+            .fill(statusColor)
+            .frame(width: 8, height: 8)
+    }
+
+    private var statusColor: Color {
+        switch diagnostic.status {
+        case .ok: .green
+        case .disabled: .secondary
+        case .noData: .orange
+        case .missingPath: .red
+        case .failed: .red
+        }
+    }
+
+    private var displayPaths: [String] {
+        if isPrivacyModeEnabled {
+            return diagnostic.dataPaths.map { path in
+                let lastComponent = URL(fileURLWithPath: path).lastPathComponent
+                return "~/.../\(lastComponent)"
+            }
+        }
+
+        return diagnostic.dataPaths
+    }
+
+    private var lastCheckedText: String {
+        guard let lastCheckedAt = diagnostic.lastCheckedAt else {
+            return "not checked"
+        }
+        return Formatters.relative(lastCheckedAt)
+    }
+}
+
 @MainActor
 private enum OpenTargetHandler {
     static func open(_ task: AgentTask) {
@@ -672,7 +967,7 @@ private struct FutureTasksView: View {
                 .padding(.bottom, 2)
 
                 ForEach(tasks) { task in
-                    FutureTaskCardView(task: task) {
+                    FutureTaskCardView(task: task, isPrivacyModeEnabled: taskStore.isPrivacyModeEnabled) {
                         taskStore.deleteFutureTask(id: task.id)
                     }
                 }
@@ -696,6 +991,7 @@ private struct FutureTasksView: View {
 
 private struct FutureTaskCardView: View {
     let task: FutureAgentTask
+    let isPrivacyModeEnabled: Bool
     let onDelete: () -> Void
 
     var body: some View {
@@ -711,7 +1007,7 @@ private struct FutureTaskCardView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text(task.title)
+                    Text(isPrivacyModeEnabled ? "Private future task" : task.title)
                         .font(.system(size: 14, weight: .semibold))
                         .lineLimit(2)
                     Spacer()
@@ -722,14 +1018,14 @@ private struct FutureTaskCardView: View {
                     .help("删除未来任务")
                 }
 
-                Text(task.prompt)
+                Text(isPrivacyModeEnabled ? "Prompt hidden by privacy mode" : task.prompt)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(3)
 
                 VStack(spacing: 5) {
                     metadataRow("Agent", task.agent.title)
-                    metadataRow("Model", task.modelHint.isEmpty ? task.agent.modelPlaceholder : task.modelHint)
+                    metadataRow("Model", isPrivacyModeEnabled ? "Hidden" : (task.modelHint.isEmpty ? task.agent.modelPlaceholder : task.modelHint))
                     metadataRow("Scheduled", Self.scheduleFormatter.string(from: task.scheduledAt))
                 }
             }

@@ -45,6 +45,15 @@ through macOS LaunchServices.
 swift build
 ```
 
+## Release Zip
+
+```bash
+script/build_release_zip.sh
+```
+
+The release script builds `.build/mahjong.app` and packages it as
+`.build/dist/mahjong.zip`.
+
 ## Test
 
 ```bash

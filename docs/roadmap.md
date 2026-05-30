@@ -63,12 +63,12 @@ flowchart LR
 
 | 优先级 | 工作项 | 原因 |
 | --- | --- | --- |
-| P0 | Settings 页面 | 用户在信任本地数据访问前，需要能控制它。 |
-| P0 | Provider 启用/禁用开关 | 用户应该能选择 mahjong 读取哪些来源。 |
-| P0 | Provider Diagnostics | 读取失败不应该静默消失，需要可见、可解释。 |
-| P0 | 隐私模式 | 降低共享屏幕时暴露路径、Token 等信息的风险。 |
+| P0 | Settings 页面 | 已有基础设置页，后续继续打磨首次使用解释。 |
+| P0 | Provider 启用/禁用开关 | 已支持选择 mahjong 读取哪些来源。 |
+| P0 | Provider Diagnostics | 已展示路径缺失、关闭、无数据和读取结果状态。 |
+| P0 | 隐私模式 | 已隐藏任务标题、摘要、模型、Token 和诊断路径细节。 |
 | P0 | README 截图/GIF | 视觉型产品需要直观展示。 |
-| P0 | GitHub Release `.zip` | 普通用户不应该必须通过 SwiftPM 运行。 |
+| P0 | GitHub Release `.zip` | 已有 `script/build_release_zip.sh` 生成 `.build/dist/mahjong.zip`。 |
 
 建议的 Settings 项：
 
@@ -258,8 +258,8 @@ stateDiagram-v2
 
 | 顺序 | 版本 | 里程碑 |
 | --- | --- | --- |
-| 1 | 0.1.0 | Settings、Provider 开关、README 截图 |
-| 2 | 0.1.1 | Provider Diagnostics |
+| 1 | 0.1.0 | Settings、Provider 开关、隐私模式、release zip 脚本已落地；README 截图待补 |
+| 2 | 0.1.1 | Provider Diagnostics 已落地；后续继续增强错误细节 |
 | 3 | 0.2.0 | `AgentProviderDescriptor`、UI 拆分 |
 | 4 | 0.2.1 | Claude 和 Hermes fixture 测试 |
 | 5 | 0.3.0 | 首次启动引导、Prompt Queue |
@@ -271,9 +271,9 @@ stateDiagram-v2
 
 | 优先级 | Issue 标题 |
 | --- | --- |
-| P0 | Add Settings page for provider toggles |
-| P0 | Add provider diagnostics panel |
-| P0 | Add privacy mode |
+| Done | Add Settings page for provider toggles |
+| Done | Add provider diagnostics panel |
+| Done | Add privacy mode |
 | P0 | Add screenshot and demo GIF to README |
 | P0 | Introduce `AgentProviderDescriptor` |
 | P1 | Split `BoardView` into smaller components |
@@ -282,5 +282,5 @@ stateDiagram-v2
 | P1 | Add Claude Desktop provider fixture tests |
 | P1 | Add Hermes sqlite fixture tests |
 | P1 | Add provider development guide |
-| P1 | Add GitHub release packaging script |
+| Done | Add GitHub release packaging script |
 | P2 | Add signed and notarized macOS release flow |

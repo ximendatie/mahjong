@@ -3,6 +3,12 @@ import XCTest
 
 @MainActor
 final class AgentTaskStoreTests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        UserDefaults.standard.removeObject(forKey: "local.mahjong.providerSettings")
+        UserDefaults.standard.removeObject(forKey: "local.mahjong.privacyMode")
+    }
+
     func testRefreshDeduplicatesTasksAndRuntimes() async throws {
         let older = Date(timeIntervalSince1970: 100)
         let newer = Date(timeIntervalSince1970: 200)
@@ -91,6 +97,31 @@ final class AgentTaskStoreTests: XCTestCase {
         XCTAssertEqual(store.task(id: "task")?.status, .history)
     }
 
+    func testDisabledProviderIsSkippedAndReported() async throws {
+        let store = AgentTaskStore(
+            providers: [
+                MockTaskProvider(providerName: "Codex", tasks: [
+                    AgentTask(
+                        id: "codex-task",
+                        title: "Running task",
+                        summary: "summary",
+                        agent: "Codex",
+                        model: "model",
+                        tokenUsage: 0,
+                        status: .running,
+                        updatedAt: Date()
+                    )
+                ])
+            ],
+            runtimeProviders: []
+        )
+
+        store.setProviderEnabled(id: "codex", isEnabled: false)
+        try await waitUntil { store.diagnostics.first { $0.id == "codex" }?.status == .disabled }
+
+        XCTAssertTrue(store.tasks.isEmpty)
+    }
+
     private func waitUntil(
         timeout: TimeInterval = 2,
         condition: @MainActor @escaping () -> Bool
@@ -107,7 +138,7 @@ final class AgentTaskStoreTests: XCTestCase {
 }
 
 private struct MockTaskProvider: AgentTaskProvider {
-    let providerName = "Mock"
+    var providerName = "Codex"
     let tasks: [AgentTask]
 
     func fetchTasks() async -> [AgentTask] {
@@ -116,7 +147,7 @@ private struct MockTaskProvider: AgentTaskProvider {
 }
 
 private struct MockRuntimeProvider: AgentRuntimeProvider {
-    let providerName = "Mock Runtime"
+    let providerName = "Terminal Agents"
     let runtimes: [AgentRuntime]
 
     func fetchRuntimes() async -> [AgentRuntime] {

@@ -6,9 +6,14 @@ final class AgentTaskStore: ObservableObject {
     @Published private(set) var runtimes: [AgentRuntime]
     @Published private(set) var futureTasks: [FutureAgentTask]
     @Published private(set) var completionPulseID: UUID?
+    @Published private(set) var providerSettings: [AgentProviderSetting]
+    @Published private(set) var diagnostics: [ProviderDiagnostic]
+    @Published private(set) var isPrivacyModeEnabled: Bool
 
     private static let futureTasksStorageKey = "local.mahjong.futureTasks"
     private static let legacyFutureTasksStorageKey = "local.agentspet.futureTasks"
+    private static let providerSettingsStorageKey = "local.mahjong.providerSettings"
+    private static let privacyModeStorageKey = "local.mahjong.privacyMode"
 
     private let providers: [AgentTaskProvider]
     private let runtimeProviders: [AgentRuntimeProvider]
@@ -36,6 +41,10 @@ final class AgentTaskStore: ObservableObject {
         tasks = []
         runtimes = []
         futureTasks = Self.loadFutureTasks()
+        let loadedProviderSettings = Self.loadProviderSettings()
+        providerSettings = loadedProviderSettings
+        diagnostics = initialDiagnostics(for: loadedProviderSettings)
+        isPrivacyModeEnabled = UserDefaults.standard.bool(forKey: Self.privacyModeStorageKey)
         knownCompletedTaskIDs = Set(tasks.filter { $0.status == .completed }.map(\.id))
     }
 
@@ -53,6 +62,21 @@ final class AgentTaskStore: ObservableObject {
 
     var runningAgentCount: Int {
         runtimes.count
+    }
+
+    func setProviderEnabled(id: String, isEnabled: Bool) {
+        guard let index = providerSettings.firstIndex(where: { $0.id == id }) else {
+            return
+        }
+
+        providerSettings[index].isEnabled = isEnabled
+        persistProviderSettings()
+        refreshNow()
+    }
+
+    func setPrivacyModeEnabled(_ isEnabled: Bool) {
+        isPrivacyModeEnabled = isEnabled
+        UserDefaults.standard.set(isEnabled, forKey: Self.privacyModeStorageKey)
     }
 
     func tasks(for status: AgentTaskStatus) -> [AgentTask] {
@@ -149,33 +173,52 @@ final class AgentTaskStore: ObservableObject {
     }
 
     private func refreshProviderTasks() async {
-        var fetchedTasks: [AgentTask] = []
-        var fetchedRuntimes: [AgentRuntime] = []
+        let enabledIDs = Set(providerSettings.filter(\.isEnabled).map(\.id))
+        var taskFetches: [ProviderTaskFetch] = []
+        var runtimeFetches: [ProviderRuntimeFetch] = []
 
-        await withTaskGroup(of: [AgentTask].self) { group in
+        await withTaskGroup(of: ProviderTaskFetch.self) { group in
             for provider in providers {
+                let id = providerID(forProviderName: provider.providerName)
+                guard enabledIDs.contains(id) else {
+                    continue
+                }
                 group.addTask {
-                    await provider.fetchTasks()
+                    ProviderTaskFetch(
+                        id: id,
+                        providerName: provider.providerName,
+                        tasks: await provider.fetchTasks()
+                    )
                 }
             }
 
-            for await providerResult in group {
-                fetchedTasks.append(contentsOf: providerResult)
+            for await fetch in group {
+                taskFetches.append(fetch)
             }
         }
 
-        await withTaskGroup(of: [AgentRuntime].self) { group in
+        await withTaskGroup(of: ProviderRuntimeFetch.self) { group in
             for provider in runtimeProviders {
+                let id = providerID(forProviderName: provider.providerName)
+                guard enabledIDs.contains(id) else {
+                    continue
+                }
                 group.addTask {
-                    await provider.fetchRuntimes()
+                    ProviderRuntimeFetch(
+                        id: id,
+                        providerName: provider.providerName,
+                        runtimes: await provider.fetchRuntimes()
+                    )
                 }
             }
 
-            for await providerResult in group {
-                fetchedRuntimes.append(contentsOf: providerResult)
+            for await fetch in group {
+                runtimeFetches.append(fetch)
             }
         }
 
+        let fetchedTasks = taskFetches.flatMap(\.tasks)
+        let fetchedRuntimes = runtimeFetches.flatMap(\.runtimes)
         providerTasks = deduplicate(fetchedTasks)
         runtimes = deduplicate(fetchedRuntimes)
             .sorted { lhs, rhs in
@@ -184,7 +227,70 @@ final class AgentTaskStore: ObservableObject {
                 }
                 return lhs.name < rhs.name
             }
+        diagnostics = makeDiagnostics(
+            taskFetches: taskFetches,
+            runtimeFetches: runtimeFetches,
+            checkedAt: Date()
+        )
         publishMergedTasks()
+    }
+
+    private func makeDiagnostics(
+        taskFetches: [ProviderTaskFetch],
+        runtimeFetches: [ProviderRuntimeFetch],
+        checkedAt: Date
+    ) -> [ProviderDiagnostic] {
+        let taskCounts = Dictionary(uniqueKeysWithValues: taskFetches.map { ($0.id, $0.tasks.count) })
+        let runtimeCounts = Dictionary(uniqueKeysWithValues: runtimeFetches.map { ($0.id, $0.runtimes.count) })
+
+        return providerSettings.map { setting in
+            let dataPaths = diagnosticPaths(for: setting.id)
+            guard setting.isEnabled else {
+                return ProviderDiagnostic(
+                    id: setting.id,
+                    displayName: setting.displayName,
+                    status: .disabled,
+                    message: "Provider is turned off in Settings.",
+                    dataPaths: dataPaths,
+                    lastCheckedAt: checkedAt
+                )
+            }
+
+            let foundPath = dataPaths.contains { pathExists($0) }
+            let missingRequiredPath = !dataPaths.isEmpty && !foundPath
+            let count = (taskCounts[setting.id] ?? 0) + (runtimeCounts[setting.id] ?? 0)
+
+            if missingRequiredPath {
+                return ProviderDiagnostic(
+                    id: setting.id,
+                    displayName: setting.displayName,
+                    status: .missingPath,
+                    message: "No configured local data path was found.",
+                    dataPaths: dataPaths,
+                    lastCheckedAt: checkedAt
+                )
+            }
+
+            if count == 0 {
+                return ProviderDiagnostic(
+                    id: setting.id,
+                    displayName: setting.displayName,
+                    status: .noData,
+                    message: "Provider is enabled, but no active or recent records were found.",
+                    dataPaths: dataPaths,
+                    lastCheckedAt: checkedAt
+                )
+            }
+
+            return ProviderDiagnostic(
+                id: setting.id,
+                displayName: setting.displayName,
+                status: .ok,
+                message: "Found \(count) record\(count == 1 ? "" : "s").",
+                dataPaths: dataPaths,
+                lastCheckedAt: checkedAt
+            )
+        }
     }
 
     private func publishMergedTasks() {
@@ -278,6 +384,41 @@ final class AgentTaskStore: ObservableObject {
         }
     }
 
+    private static func loadProviderSettings() -> [AgentProviderSetting] {
+        let defaults = UserDefaults.standard
+        let defaultsByID = Dictionary(uniqueKeysWithValues: defaultProviderSettings().map { ($0.id, $0) })
+        guard
+            let data = defaults.data(forKey: providerSettingsStorageKey),
+            let savedSettings = try? JSONDecoder().decode([AgentProviderSetting].self, from: data)
+        else {
+            return defaultProviderSettings()
+        }
+
+        var merged = defaultProviderSettings()
+        for saved in savedSettings {
+            guard let index = merged.firstIndex(where: { $0.id == saved.id }) else {
+                continue
+            }
+            let current = defaultsByID[saved.id] ?? merged[index]
+            merged[index] = AgentProviderSetting(
+                id: current.id,
+                displayName: current.displayName,
+                detail: current.detail,
+                isEnabled: saved.isEnabled
+            )
+        }
+        return merged
+    }
+
+    private func persistProviderSettings() {
+        do {
+            let data = try JSONEncoder().encode(providerSettings)
+            UserDefaults.standard.set(data, forKey: Self.providerSettingsStorageKey)
+        } catch {
+            assertionFailure("Failed to persist provider settings: \(error)")
+        }
+    }
+
     private func persistFutureTasks() {
         do {
             let data = try JSONEncoder().encode(futureTasks)
@@ -285,5 +426,107 @@ final class AgentTaskStore: ObservableObject {
         } catch {
             assertionFailure("Failed to persist future tasks: \(error)")
         }
+    }
+}
+
+private struct ProviderTaskFetch: Sendable {
+    let id: String
+    let providerName: String
+    let tasks: [AgentTask]
+}
+
+private struct ProviderRuntimeFetch: Sendable {
+    let id: String
+    let providerName: String
+    let runtimes: [AgentRuntime]
+}
+
+private func providerID(forProviderName name: String) -> String {
+    switch name {
+    case "Codex": "codex"
+    case "Claude": "claude"
+    case "Claude Desktop": "claudeDesktop"
+    case "Hermes": "hermes"
+    case "Terminal Agents": "terminalAgents"
+    case "Desktop Apps": "desktopApps"
+    default:
+        name.lowercased().filter { $0.isLetter || $0.isNumber }
+    }
+}
+
+private func defaultProviderSettings() -> [AgentProviderSetting] {
+    [
+        AgentProviderSetting(
+            id: "codex",
+            displayName: "Codex",
+            detail: "Reads local Codex session index and event streams.",
+            isEnabled: true
+        ),
+        AgentProviderSetting(
+            id: "claude",
+            displayName: "Claude CLI",
+            detail: "Reads local Claude project JSONL sessions.",
+            isEnabled: true
+        ),
+        AgentProviderSetting(
+            id: "claudeDesktop",
+            displayName: "Claude Desktop",
+            detail: "Reads Claude Desktop local agent session metadata.",
+            isEnabled: true
+        ),
+        AgentProviderSetting(
+            id: "hermes",
+            displayName: "Hermes",
+            detail: "Reads Hermes local state database.",
+            isEnabled: true
+        ),
+        AgentProviderSetting(
+            id: "terminalAgents",
+            displayName: "Terminal Agents",
+            detail: "Inspects local process metadata from ps.",
+            isEnabled: true
+        ),
+        AgentProviderSetting(
+            id: "desktopApps",
+            displayName: "Desktop Apps",
+            detail: "Observes supported running macOS app bundle identifiers.",
+            isEnabled: true
+        )
+    ]
+}
+
+private func diagnosticPaths(for providerID: String) -> [String] {
+    let home = FileManager.default.homeDirectoryForCurrentUser.path
+    switch providerID {
+    case "codex":
+        return ["\(home)/.codex/session_index.jsonl", "\(home)/.codex/sessions"]
+    case "claude":
+        return ["\(home)/.claude/projects"]
+    case "claudeDesktop":
+        return [
+            "\(home)/Library/Application Support/Claude-3p/local-agent-mode-sessions",
+            "\(home)/Library/Application Support/Claude-3p/claude-code-sessions"
+        ]
+    case "hermes":
+        return ["\(home)/.hermes/state.db"]
+    default:
+        return []
+    }
+}
+
+private func pathExists(_ path: String) -> Bool {
+    FileManager.default.fileExists(atPath: path)
+}
+
+private func initialDiagnostics(for settings: [AgentProviderSetting]) -> [ProviderDiagnostic] {
+    settings.map { setting in
+        ProviderDiagnostic(
+            id: setting.id,
+            displayName: setting.displayName,
+            status: setting.isEnabled ? .noData : .disabled,
+            message: setting.isEnabled ? "Not checked yet." : "Provider is turned off in Settings.",
+            dataPaths: diagnosticPaths(for: setting.id),
+            lastCheckedAt: nil
+        )
     }
 }

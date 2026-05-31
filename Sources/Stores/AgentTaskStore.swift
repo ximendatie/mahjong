@@ -120,6 +120,45 @@ final class AgentTaskStore: ObservableObject {
         return tasks.first { $0.id == id }
     }
 
+    func tokenUsageSummaries(
+        for range: TokenUsageTimeRange,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> [TokenUsageSummary] {
+        let filteredTasks = tasks.filter { task in
+            task.tokenUsage > 0 && range.contains(task.updatedAt, now: now, calendar: calendar)
+        }
+        var summariesByID: [String: TokenUsageSummary] = [:]
+
+        for task in filteredTasks {
+            let agentName = task.agent.trimmingCharacters(in: .whitespacesAndNewlines)
+            let displayName = agentName.isEmpty ? (task.providerID?.rawValue ?? "Unknown") : agentName
+            let id = task.providerID?.rawValue ?? displayName
+
+            if var summary = summariesByID[id] {
+                summary.taskCount += 1
+                summary.totalTokens += task.tokenUsage
+                summary.latestActivityAt = max(summary.latestActivityAt, task.updatedAt)
+                summariesByID[id] = summary
+            } else {
+                summariesByID[id] = TokenUsageSummary(
+                    agent: displayName,
+                    providerID: task.providerID,
+                    taskCount: 1,
+                    totalTokens: task.tokenUsage,
+                    latestActivityAt: task.updatedAt
+                )
+            }
+        }
+
+        return summariesByID.values.sorted { lhs, rhs in
+            if lhs.totalTokens != rhs.totalTokens {
+                return lhs.totalTokens > rhs.totalTokens
+            }
+            return lhs.agent.localizedStandardCompare(rhs.agent) == .orderedAscending
+        }
+    }
+
     func sortedFutureTasks() -> [FutureTaskItem] {
         futureTasks
             .sorted { lhs, rhs in

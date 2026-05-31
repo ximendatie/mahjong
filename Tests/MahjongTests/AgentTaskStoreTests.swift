@@ -256,6 +256,71 @@ final class AgentTaskStoreTests: XCTestCase {
         XCTAssertFalse(reloadedStore.isMenuBarEnabled)
     }
 
+    func testTokenUsageSummariesGroupByAgentAndFilterDateRange() async throws {
+        let calendar = Calendar(identifier: .gregorian)
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let today = now.addingTimeInterval(-60 * 60)
+        let lastWeek = now.addingTimeInterval(-7 * 24 * 60 * 60)
+        let old = now.addingTimeInterval(-45 * 24 * 60 * 60)
+        let store = AgentTaskStore(
+            providers: [
+                MockTaskProvider(tasks: [
+                    AgentTask(
+                        id: "codex-today",
+                        title: "Today",
+                        summary: "summary",
+                        agent: "Codex",
+                        providerID: .codex,
+                        model: "model",
+                        tokenUsage: 100,
+                        status: .completed,
+                        updatedAt: today
+                    ),
+                    AgentTask(
+                        id: "codex-week",
+                        title: "Week",
+                        summary: "summary",
+                        agent: "Codex",
+                        providerID: .codex,
+                        model: "model",
+                        tokenUsage: 30,
+                        status: .history,
+                        updatedAt: lastWeek
+                    ),
+                    AgentTask(
+                        id: "claude-old",
+                        title: "Old",
+                        summary: "summary",
+                        agent: "Claude",
+                        providerID: .claudeCLI,
+                        model: "model",
+                        tokenUsage: 300,
+                        status: .history,
+                        updatedAt: old
+                    )
+                ])
+            ],
+            runtimeProviders: []
+        )
+
+        store.refreshNow()
+        try await waitUntil { store.tasks.count == 3 }
+
+        let all = store.tokenUsageSummaries(for: .all, now: now, calendar: calendar)
+        XCTAssertEqual(all.map(\.agent), ["Claude", "Codex"])
+        XCTAssertEqual(all.first?.totalTokens, 300)
+        XCTAssertEqual(all.last?.totalTokens, 130)
+        XCTAssertEqual(all.last?.taskCount, 2)
+
+        let lastMonth = store.tokenUsageSummaries(for: .lastMonth, now: now, calendar: calendar)
+        XCTAssertEqual(lastMonth.map(\.agent), ["Codex"])
+        XCTAssertEqual(lastMonth.first?.totalTokens, 130)
+
+        let todayOnly = store.tokenUsageSummaries(for: .today, now: now, calendar: calendar)
+        XCTAssertEqual(todayOnly.map(\.agent), ["Codex"])
+        XCTAssertEqual(todayOnly.first?.totalTokens, 100)
+    }
+
     private func waitUntil(
         timeout: TimeInterval = 2,
         condition: @MainActor @escaping () -> Bool

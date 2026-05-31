@@ -299,6 +299,68 @@ final class ProviderFixtureTests: XCTestCase {
         XCTAssertEqual(task.status, .running)
     }
 
+    func testOpenClawStaleUnendedTrajectoryDoesNotStayRunning() async throws {
+        let sessionsDirectory = temporaryHome
+            .appendingPathComponent(".openclaw", isDirectory: true)
+            .appendingPathComponent("agents", isDirectory: true)
+            .appendingPathComponent("main", isDirectory: true)
+            .appendingPathComponent("sessions", isDirectory: true)
+        try FileManager.default.createDirectory(at: sessionsDirectory, withIntermediateDirectories: true)
+
+        let sessionURL = sessionsDirectory.appendingPathComponent("openclaw-stale.jsonl")
+        let trajectoryURL = sessionsDirectory.appendingPathComponent("openclaw-stale.trajectory.jsonl")
+        let old = ISO8601DateFormatter().string(from: Date(timeIntervalSinceNow: -2 * 60 * 60))
+        let oldMilliseconds = Int(Date(timeIntervalSinceNow: -2 * 60 * 60).timeIntervalSince1970 * 1000)
+
+        let session = """
+        {"type":"session","id":"openclaw-stale","timestamp":"\(old)","cwd":"\(temporaryHome.path)/.openclaw"}
+        {"type":"message","timestamp":"\(old)","message":{"role":"user","content":"旧任务","timestamp":\(oldMilliseconds)}}
+        {"type":"message","timestamp":"\(old)","message":{"role":"assistant","content":[{"type":"toolCall","name":"bash"}],"model":"qwen3.5:9b","usage":{"totalTokens":42},"stopReason":"toolUse","timestamp":\(oldMilliseconds)}}
+        """
+        try session.write(to: sessionURL, atomically: true, encoding: .utf8)
+
+        let trajectory = """
+        {"type":"session.started","ts":"\(old)","sessionId":"openclaw-stale","sessionKey":"agent:main:main","runId":"stale-run","workspaceDir":"\(temporaryHome.path)/.openclaw/workspace","provider":"ollama","modelId":"qwen3.5:9b"}
+        """
+        try trajectory.write(to: trajectoryURL, atomically: true, encoding: .utf8)
+
+        let tasks = await OpenClawLocalProvider(homeDirectory: temporaryHome).fetchTasks()
+
+        let task = try XCTUnwrap(tasks.first)
+        XCTAssertEqual(task.id, "openclaw:openclaw-stale")
+        XCTAssertEqual(task.status, .completed)
+    }
+
+    func testOpenClawHeartbeatOnlySessionIsHidden() async throws {
+        let sessionsDirectory = temporaryHome
+            .appendingPathComponent(".openclaw", isDirectory: true)
+            .appendingPathComponent("agents", isDirectory: true)
+            .appendingPathComponent("main", isDirectory: true)
+            .appendingPathComponent("sessions", isDirectory: true)
+        try FileManager.default.createDirectory(at: sessionsDirectory, withIntermediateDirectories: true)
+
+        let sessionURL = sessionsDirectory.appendingPathComponent("openclaw-heartbeat.jsonl")
+        let trajectoryURL = sessionsDirectory.appendingPathComponent("openclaw-heartbeat.trajectory.jsonl")
+        let now = ISO8601DateFormatter().string(from: Date())
+        let nowMilliseconds = Int(Date().timeIntervalSince1970 * 1000)
+
+        let session = """
+        {"type":"session","id":"openclaw-heartbeat","timestamp":"\(now)","cwd":"\(temporaryHome.path)/.openclaw"}
+        {"type":"message","timestamp":"\(now)","message":{"role":"user","content":"[OpenClaw heartbeat poll]","timestamp":\(nowMilliseconds)}}
+        {"type":"message","timestamp":"\(now)","message":{"role":"assistant","content":[{"type":"text","text":"HEARTBEAT_OK"}],"model":"qwen3.5:9b","usage":{"totalTokens":4102},"stopReason":"stop","timestamp":\(nowMilliseconds)}}
+        """
+        try session.write(to: sessionURL, atomically: true, encoding: .utf8)
+
+        let trajectory = """
+        {"type":"session.started","ts":"\(now)","sessionId":"openclaw-heartbeat","sessionKey":"agent:main:main:heartbeat","runId":"heartbeat-run","workspaceDir":"\(temporaryHome.path)/.openclaw/workspace","provider":"ollama","modelId":"qwen3.5:9b","data":{"trigger":"heartbeat","messageProvider":"heartbeat"}}
+        """
+        try trajectory.write(to: trajectoryURL, atomically: true, encoding: .utf8)
+
+        let tasks = await OpenClawLocalProvider(homeDirectory: temporaryHome).fetchTasks()
+
+        XCTAssertTrue(tasks.isEmpty)
+    }
+
     func testOpenClawEndedTrajectoryMapsTaskCompleted() async throws {
         let sessionsDirectory = temporaryHome
             .appendingPathComponent(".openclaw", isDirectory: true)
@@ -333,6 +395,38 @@ final class ProviderFixtureTests: XCTestCase {
         XCTAssertEqual(task.status, .completed)
         XCTAssertEqual(task.model, "gpt-5.5")
         XCTAssertEqual(task.tokenUsage, 32)
+    }
+
+    func testOpenClawTitleStripsSenderMetadataEnvelope() async throws {
+        let sessionsDirectory = temporaryHome
+            .appendingPathComponent(".openclaw", isDirectory: true)
+            .appendingPathComponent("agents", isDirectory: true)
+            .appendingPathComponent("main", isDirectory: true)
+            .appendingPathComponent("sessions", isDirectory: true)
+        try FileManager.default.createDirectory(at: sessionsDirectory, withIntermediateDirectories: true)
+
+        let sessionURL = sessionsDirectory.appendingPathComponent("openclaw-metadata.jsonl")
+        let trajectoryURL = sessionsDirectory.appendingPathComponent("openclaw-metadata.trajectory.jsonl")
+        let now = ISO8601DateFormatter().string(from: Date())
+        let nowMilliseconds = Int(Date().timeIntervalSince1970 * 1000)
+
+        let session = #"""
+        {"type":"session","id":"openclaw-metadata","timestamp":"\#(now)","cwd":"\#(temporaryHome.path)/.openclaw"}
+        {"type":"message","timestamp":"\#(now)","message":{"role":"user","content":"Sender (untrusted metadata):\n```json\n{\"label\":\"muzhi的Mac mini\"}\n```\n\n[Thu 2026-05-07 21:53 GMT+8] 我26年的体检报告存储位置是什么","timestamp":\#(nowMilliseconds)}}
+        {"type":"message","timestamp":"\#(now)","message":{"role":"assistant","content":[{"type":"text","text":"已找到。"}],"model":"qwen3.5:9b","usage":{"totalTokens":42},"stopReason":"stop","timestamp":\#(nowMilliseconds)}}
+        """#
+        try session.write(to: sessionURL, atomically: true, encoding: .utf8)
+
+        let trajectory = """
+        {"type":"session.started","ts":"\(now)","sessionId":"openclaw-metadata","sessionKey":"agent:main:main","runId":"metadata-run","workspaceDir":"\(temporaryHome.path)/.openclaw/workspace","provider":"ollama","modelId":"qwen3.5:9b"}
+        {"type":"session.ended","ts":"\(now)","sessionId":"openclaw-metadata","sessionKey":"agent:main:main","runId":"metadata-run","workspaceDir":"\(temporaryHome.path)/.openclaw/workspace","provider":"ollama","modelId":"qwen3.5:9b"}
+        """
+        try trajectory.write(to: trajectoryURL, atomically: true, encoding: .utf8)
+
+        let tasks = await OpenClawLocalProvider(homeDirectory: temporaryHome).fetchTasks()
+
+        let task = try XCTUnwrap(tasks.first)
+        XCTAssertEqual(task.title, "我26年的体检报告存储位置是什么")
     }
 
     private func runSQLite(databaseURL: URL, sql: String) throws {

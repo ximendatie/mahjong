@@ -82,6 +82,8 @@ mahjong 默认只做只读的本地观察：
 - [隐私和安全说明](docs/privacy.md)
 - [架构概览](docs/architecture.md)
 - [路线图](docs/roadmap.md)
+- [Provider 开发指南](docs/provider-development.md)
+- [贡献者任务看板](docs/contributor-tasks.md)
 - [贡献指南](CONTRIBUTING.zh-CN.md) / [English](CONTRIBUTING.md)
 - [安全政策](SECURITY.zh-CN.md) / [English](SECURITY.md)
 

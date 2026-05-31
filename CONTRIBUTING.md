@@ -31,6 +31,9 @@ script/build_and_run.sh
 
 ## Adding a Provider
 
+Start with [docs/provider-development.md](docs/provider-development.md). In
+short:
+
 1. Add an `AgentTaskProvider` when you can safely derive task cards from local
    metadata.
 2. Add an `AgentRuntimeProvider` when you can detect whether an app or process
@@ -40,6 +43,8 @@ script/build_and_run.sh
 4. Treat missing files, unknown schemas, and permission failures as empty data
    instead of app-breaking errors.
 5. Include fixture-based tests with representative local files or rows.
+
+Good starter tasks are tracked in [docs/contributor-tasks.md](docs/contributor-tasks.md).
 
 ## Reporting Security or Privacy Issues
 

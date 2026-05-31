@@ -30,11 +30,15 @@ script/build_and_run.sh
 
 ## 添加 Provider
 
+请先阅读 [docs/provider-development.md](docs/provider-development.md)。简要规则：
+
 1. 如果可以安全地从本地元数据推导任务卡片，添加 `AgentTaskProvider`。
 2. 如果只能检测应用或进程是否运行，添加 `AgentRuntimeProvider`。
 3. 优先使用明确的元数据、时间戳和状态事件，不要依赖解析消息正文。
 4. 文件缺失、schema 未知或权限不足时，应返回空数据或部分数据，不要让 App 崩溃。
 5. 添加基于 fixture 的测试，覆盖代表性的本地文件或数据库行。
+
+适合新贡献者的任务整理在 [docs/contributor-tasks.md](docs/contributor-tasks.md)。
 
 ## 报告安全或隐私问题
 

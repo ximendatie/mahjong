@@ -1,0 +1,55 @@
+name: Provider support
+description: Propose or scope support for a local AI agent provider.
+title: "[Provider]: "
+labels: ["provider", "help wanted"]
+body:
+  - type: input
+    id: provider
+    attributes:
+      label: Provider name
+      placeholder: "Gemini CLI, Aider, Cursor, ..."
+    validations:
+      required: true
+  - type: dropdown
+    id: initial_scope
+    attributes:
+      label: Initial scope
+      description: Start with the smallest useful read-only signal.
+      options:
+        - Runtime detection only
+        - Task metadata from local files
+        - Task metadata from local database
+        - Both task metadata and runtime detection
+        - Research needed
+    validations:
+      required: true
+  - type: textarea
+    id: local_paths
+    attributes:
+      label: Known local paths or runtime signals
+      description: Do not paste private prompts, full session files, secrets, or sensitive local content.
+      placeholder: |
+        - ~/.example/sessions
+        - process name: example-cli
+        - bundle id: com.example.desktop
+    validations:
+      required: false
+  - type: textarea
+    id: privacy
+    attributes:
+      label: Privacy notes
+      description: What data would mahjong need to read, and what should it avoid displaying?
+      placeholder: "Reads timestamps and status fields only; does not read prompt/response bodies."
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      value: |
+        - [ ] Local-first and read-only.
+        - [ ] Missing files or permissions do not crash the app.
+        - [ ] Fixture tests cover the parser or runtime detection.
+        - [ ] README and docs/privacy.md are updated.
+    validations:
+      required: true

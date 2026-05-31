@@ -5,6 +5,7 @@ struct OpenClawLocalProvider: AgentTaskProvider {
     let providerName = "OpenClaw"
 
     private static let recentActivityWindow: TimeInterval = 24 * 60 * 60
+    private static let runningActivityWindow: TimeInterval = 10 * 60
     private let agentsDirectory: URL
 
     init(homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser) {
@@ -34,7 +35,10 @@ struct OpenClawLocalProvider: AgentTaskProvider {
             .deletingPathExtension()
             .appendingPathExtension("trajectory.jsonl")
         let trajectory = readTrajectory(from: trajectoryURL)
-        let latestUserMessage = messages.last { $0.role == "user" }
+        let latestUserMessage = messages.last { $0.role == "user" && isVisibleUserText($0.text) }
+        guard latestUserMessage != nil || trajectory.runs.contains(where: { $0.isInternal == false }) else {
+            return nil
+        }
         let latestAssistantMessage = messages.last { $0.role == "assistant" && $0.isDeliveryMirror == false }
         let updatedAt = max(
             messages.compactMap(\.timestamp).max() ?? Date.distantPast,
@@ -115,7 +119,6 @@ struct OpenClawLocalProvider: AgentTaskProvider {
         var updatedAt: Date?
         var workspaceDirectory: String?
         var model: String?
-
         for line in content.split(separator: "\n") {
             guard
                 let data = String(line).data(using: .utf8),
@@ -129,17 +132,19 @@ struct OpenClawLocalProvider: AgentTaskProvider {
             updatedAt = max(updatedAt ?? eventAt, eventAt)
             workspaceDirectory = (object["workspaceDir"] as? String)?.nilIfEmpty ?? workspaceDirectory
             model = (object["modelId"] as? String)?.nilIfEmpty ?? model
-
             guard let runID = object["runId"] as? String else {
                 continue
             }
 
-            var run = runByID[runID] ?? OpenClawTrajectoryRun(startedAt: eventAt, endedAt: nil)
+            var run = runByID[runID] ?? OpenClawTrajectoryRun(startedAt: eventAt, endedAt: nil, isInternal: false)
             if type == "session.started" {
                 run.startedAt = eventAt
             }
             if type == "session.ended" {
                 run.endedAt = eventAt
+            }
+            if isInternalEvent(object) {
+                run.isInternal = true
             }
             runByID[runID] = run
         }
@@ -153,7 +158,12 @@ struct OpenClawLocalProvider: AgentTaskProvider {
     }
 
     private func status(for trajectory: OpenClawTrajectoryState, updatedAt: Date) -> AgentTaskStatus {
-        if trajectory.runs.contains(where: { $0.endedAt == nil }) {
+        let now = Date()
+        if trajectory.runs.contains(where: { run in
+            run.endedAt == nil
+                && run.isInternal == false
+                && now.timeIntervalSince(max(run.startedAt, updatedAt)) < Self.runningActivityWindow
+        }) {
             return .running
         }
 
@@ -161,12 +171,25 @@ struct OpenClawLocalProvider: AgentTaskProvider {
     }
 
     private func title(from text: String?) -> String {
-        let trimmed = text?
+        let trimmed = normalizedUserText(from: text)
+
+        return trimmed ?? "OpenClaw 会话"
+    }
+
+    private func normalizedUserText(from text: String?) -> String? {
+        text?
+            .replacingOccurrences(of: #"(?s)^Sender \(untrusted metadata\):\s*```json.*?```\s*"#, with: "", options: .regularExpression)
             .replacingOccurrences(of: #"^\[[^\]]+\]\s*"#, with: "", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .nilIfEmpty
+    }
 
-        return trimmed ?? "OpenClaw 会话"
+    private func isVisibleUserText(_ text: String?) -> Bool {
+        guard let normalized = normalizedUserText(from: text) else {
+            return false
+        }
+        return normalized != "[OpenClaw heartbeat poll]"
+            && normalized.hasPrefix("Delivery: to send a message") == false
     }
 
     private func summary(status: AgentTaskStatus, workspaceDirectory: String?) -> String {
@@ -225,6 +248,15 @@ struct OpenClawLocalProvider: AgentTaskProvider {
         message["model"] as? String == "delivery-mirror"
     }
 
+    private func isInternalEvent(_ object: [String: Any]) -> Bool {
+        let sessionKey = object["sessionKey"] as? String
+        let data = object["data"] as? [String: Any]
+
+        return sessionKey?.contains(":heartbeat") == true
+            || data?["trigger"] as? String == "heartbeat"
+            || data?["messageProvider"] as? String == "heartbeat"
+    }
+
     private func dateFromMilliseconds(_ value: Any?) -> Date? {
         if let value = value as? Double {
             return Date(timeIntervalSince1970: value / 1000)
@@ -257,4 +289,5 @@ private struct OpenClawTrajectoryState {
 private struct OpenClawTrajectoryRun {
     var startedAt: Date
     var endedAt: Date?
+    var isInternal: Bool
 }

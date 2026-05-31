@@ -206,9 +206,9 @@ stateDiagram-v2
 
 | 优先级 | 工作项 | 原因 |
 | --- | --- | --- |
-| P1 | `docs/provider-development.md` | 降低 Provider PR 的门槛。 |
-| P1 | Good first issues | 给新贡献者低摩擦入口。 |
-| P1 | Issue 标签体系 | 帮贡献者快速找到合适的工作。 |
+| Done | `docs/provider-development.md` | 降低 Provider PR 的门槛。 |
+| Done | Good first issues | 已在 `docs/contributor-tasks.md` 整理可转换成 GitHub issues 的任务。 |
+| Done | Issue 标签体系 | 已在 `docs/issue-labels.md` 定义标签用途和建议颜色。 |
 | P1 | 更多 Provider 支持 | 通过社区 PR 扩大项目价值。 |
 
 推荐标签：
@@ -217,6 +217,9 @@ stateDiagram-v2
 - `privacy`
 - `parser`
 - `ui`
+- `diagnostics`
+- `docs`
+- `tests`
 - `good first issue`
 - `help wanted`
 - `release`

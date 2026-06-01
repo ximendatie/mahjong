@@ -53,6 +53,8 @@ crashing the app.
 - `PetView` renders the floating companion and maps running session counts to
   Mahjong tile icons.
 - `BoardView` renders task columns, runtime status, and future plans.
+- The app uses a regular macOS activation policy so mahjong appears in the Dock;
+  the bundle icon is generated from `Resources/MahjongTiles/red.png`.
 - `PetWindowController` and `BoardWindowController` bridge SwiftUI views into
   macOS windows.
 

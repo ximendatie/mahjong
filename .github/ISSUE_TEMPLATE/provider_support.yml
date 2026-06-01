@@ -35,11 +35,46 @@ body:
     validations:
       required: false
   - type: textarea
+    id: sample_shape
+    attributes:
+      label: Safe sample shape
+      description: Share field names, redacted schema, or a tiny synthetic fixture. Do not share real prompts, responses, tokens, paths, API keys, or user content.
+      placeholder: |
+        {
+          "session_id": "redacted",
+          "status": "running | completed",
+          "updated_at": "2026-06-01T12:00:00Z"
+        }
+    validations:
+      required: false
+  - type: dropdown
+    id: permissions
+    attributes:
+      label: Permission model
+      description: Which local permission would mahjong need?
+      options:
+        - No extra permission
+        - File read access only
+        - Local database read access
+        - Accessibility read access
+        - Process list only
+        - Unknown
+    validations:
+      required: true
+  - type: textarea
     id: privacy
     attributes:
       label: Privacy notes
       description: What data would mahjong need to read, and what should it avoid displaying?
       placeholder: "Reads timestamps and status fields only; does not read prompt/response bodies."
+    validations:
+      required: true
+  - type: textarea
+    id: no_go
+    attributes:
+      label: Data mahjong must not read or display
+      description: Call out sensitive fields so provider support can stay narrow and reviewable.
+      placeholder: "Do not read full message bodies, API keys, attachments, hidden project files, or remote account identifiers."
     validations:
       required: true
   - type: textarea

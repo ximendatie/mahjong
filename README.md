@@ -32,6 +32,7 @@ current workload is visible at a glance.
 
 - Shows a floating Mahjong-tile desktop companion that reacts when local agents
   are working.
+- Shows a Dock entry for mahjong with the red Mahjong tile app icon.
 - Opens a mahjong Board with running, completed, and archived task cards.
 - Detects supported desktop apps and terminal agent processes.
 - Reads local session metadata for supported providers.
@@ -116,6 +117,8 @@ mahjong uses read-only local observation by default:
 - [Architecture overview](docs/architecture.md)
 - [Roadmap](docs/roadmap.md)
 - [Provider development guide](docs/provider-development.md)
+- [Provider scaffold](docs/provider-scaffold.md)
+- [Auto-update strategy](docs/auto-update.md)
 - [Contributor task board](docs/contributor-tasks.md)
 - [Release guide](docs/release.md)
 - [Contributing guide](CONTRIBUTING.md) / [中文](CONTRIBUTING.zh-CN.md)

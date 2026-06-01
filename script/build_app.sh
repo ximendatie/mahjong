@@ -12,25 +12,37 @@ CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
 ICON_SOURCE="$PWD/Resources/MahjongTiles/red.png"
-ICONSET_DIR="$PWD/.build/mahjong.iconset"
-ICON_FILE="$PWD/.build/mahjong.icns"
+ICON_WORK_DIR="$(mktemp -d "$PWD/.build/mahjong-icons.XXXXXX")"
+ICONSET_DIR="$ICON_WORK_DIR/mahjong.iconset"
+ICON_FILE="$ICON_WORK_DIR/mahjong.icns"
+
+cleanup() {
+  rm -rf "$ICON_WORK_DIR"
+}
+trap cleanup EXIT
 
 rm -rf "$APP_DIR"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 
 cp "$PWD/.build/debug/mahjong" "$MACOS_DIR/mahjong"
 
-if [[ -f "$ICON_SOURCE" ]] && command -v magick >/dev/null 2>&1; then
-  rm -rf "$ICONSET_DIR"
+if [[ -f "$ICON_SOURCE" ]] && command -v iconutil >/dev/null 2>&1; then
   mkdir -p "$ICONSET_DIR"
 
   for size in 16 32 128 256 512; do
-    magick -background none "$ICON_SOURCE" -resize "${size}x${size}" "$ICONSET_DIR/icon_${size}x${size}.png"
-    magick -background none "$ICON_SOURCE" -resize "$((size * 2))x$((size * 2))" "$ICONSET_DIR/icon_${size}x${size}@2x.png"
+    if command -v magick >/dev/null 2>&1; then
+      magick -background none "$ICON_SOURCE" -resize "${size}x${size}" "$ICONSET_DIR/icon_${size}x${size}.png"
+      magick -background none "$ICON_SOURCE" -resize "$((size * 2))x$((size * 2))" "$ICONSET_DIR/icon_${size}x${size}@2x.png"
+    elif command -v sips >/dev/null 2>&1; then
+      sips -z "$size" "$size" "$ICON_SOURCE" --out "$ICONSET_DIR/icon_${size}x${size}.png" >/dev/null
+      sips -z "$((size * 2))" "$((size * 2))" "$ICON_SOURCE" --out "$ICONSET_DIR/icon_${size}x${size}@2x.png" >/dev/null
+    fi
   done
 
-  iconutil -c icns "$ICONSET_DIR" -o "$ICON_FILE"
-  cp "$ICON_FILE" "$RESOURCES_DIR/mahjong.icns"
+  if [[ -f "$ICONSET_DIR/icon_512x512@2x.png" ]]; then
+    iconutil -c icns "$ICONSET_DIR" -o "$ICON_FILE"
+    cp "$ICON_FILE" "$RESOURCES_DIR/mahjong.icns"
+  fi
 fi
 
 if [[ -d "$PWD/Resources/MahjongTiles" ]]; then
@@ -66,8 +78,6 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
   <string>$BUILD_NUMBER</string>
   <key>LSMinimumSystemVersion</key>
   <string>14.0</string>
-  <key>LSUIElement</key>
-  <true/>
   <key>NSHighResolutionCapable</key>
   <true/>
 </dict>

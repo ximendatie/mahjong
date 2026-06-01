@@ -22,6 +22,7 @@ mahjong 是一个本地优先的 macOS 桌面伴侣，用来观察 Codex、Claud
 ## 功能
 
 - 显示一个悬浮的麻将牌桌面伴侣，并在本地 Agent 工作时做出状态反馈。
+- 在程序坞显示 mahjong 入口，使用红中麻将牌作为应用图标。
 - 打开 mahjong Board，展示运行中、已完成和已归档的任务卡片。
 - 检测受支持的桌面应用和终端 Agent 进程。
 - 读取受支持 provider 的本地会话元数据。
@@ -97,6 +98,8 @@ mahjong 默认只做只读的本地观察：
 - [架构概览](docs/architecture.md)
 - [路线图](docs/roadmap.md)
 - [Provider 开发指南](docs/provider-development.md)
+- [Provider scaffold](docs/provider-scaffold.md)
+- [自动更新策略](docs/auto-update.md)
 - [贡献者任务看板](docs/contributor-tasks.md)
 - [发布指南](docs/release.md)
 - [贡献指南](CONTRIBUTING.zh-CN.md) / [English](CONTRIBUTING.md)

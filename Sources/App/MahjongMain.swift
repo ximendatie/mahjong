@@ -10,7 +10,7 @@ enum MahjongMain {
         let delegate = AppDelegate()
         appDelegate = delegate
         application.delegate = appDelegate
-        application.setActivationPolicy(.accessory)
+        application.setActivationPolicy(.regular)
         application.run()
     }
 }

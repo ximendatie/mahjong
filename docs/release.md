@@ -91,6 +91,7 @@ Use this checklist before tagging `v1.0.0`.
 - [ ] `script/build_release_zip.sh` creates `.build/dist/mahjong-1.0.0-macos.zip`.
 - [ ] `script/build_release_dmg.sh` creates `.build/dist/mahjong-1.0.0-macos.dmg`.
 - [ ] The `.app` launches, quits from the menu bar, and relaunches cleanly.
+- [ ] The `.app` appears in the Dock with the red Mahjong tile icon.
 - [ ] Closing the Board hides the window without quitting the app.
 - [ ] The pet and menu bar item can reopen the Board.
 - [ ] Privacy mode hides task titles, summaries, model names, token values, token analytics totals, future-plan notes, and detailed diagnostic paths.

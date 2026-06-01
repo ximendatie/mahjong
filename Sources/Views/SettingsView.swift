@@ -3,6 +3,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var taskStore: AgentTaskStore
+    @StateObject private var versionChecker = AppVersionChecker()
 
     var body: some View {
         ScrollView {
@@ -40,6 +41,8 @@ struct SettingsView: View {
             MenuBarToggleRow(isEnabled: taskStore.isMenuBarEnabled) { isEnabled in
                 taskStore.setMenuBarEnabled(isEnabled)
             }
+
+            VersionUpdateRow(versionChecker: versionChecker)
 
             LazyVGrid(columns: providerColumns, alignment: .leading, spacing: 10) {
                 ForEach(taskStore.providerSettings) { setting in
@@ -91,6 +94,92 @@ struct SettingsView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+struct VersionUpdateRow: View {
+    @ObservedObject var versionChecker: AppVersionChecker
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 14) {
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: 8) {
+                    Text("版本更新")
+                        .font(.system(size: 14, weight: .semibold))
+                    Text("v\(versionChecker.currentVersion)")
+                        .font(.caption2.monospacedDigit().weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(Capsule().fill(Color.primary.opacity(0.07)))
+                }
+
+                Text(statusText)
+                    .font(.caption)
+                    .foregroundStyle(statusColor)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 16)
+
+            if case let .updateAvailable(_, _, releaseURL) = versionChecker.status {
+                Button {
+                    NSWorkspace.shared.open(releaseURL)
+                } label: {
+                    Label("下载更新", systemImage: "arrow.down.circle")
+                }
+                .buttonStyle(.borderedProminent)
+            }
+
+            Button {
+                versionChecker.checkForUpdates()
+            } label: {
+                if versionChecker.status == .checking {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Label("检查更新", systemImage: "arrow.clockwise")
+                }
+            }
+            .buttonStyle(.bordered)
+            .disabled(versionChecker.status == .checking)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 82, alignment: .center)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.9))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+        )
+    }
+
+    private var statusText: String {
+        switch versionChecker.status {
+        case .idle:
+            "手动检查 GitHub Release；发现新版本后打开下载页面。"
+        case .checking:
+            "正在检查最新版本..."
+        case let .upToDate(version):
+            "当前已是最新版本 v\(version)。"
+        case let .updateAvailable(_, latestVersion, _):
+            "发现新版本 v\(latestVersion)，可打开 Release 页面下载。"
+        case let .failed(message):
+            "\(message) 可点击“检查更新”重试。"
+        }
+    }
+
+    private var statusColor: Color {
+        switch versionChecker.status {
+        case .failed:
+            .red
+        case .updateAvailable:
+            .green
+        default:
+            .secondary
         }
     }
 }

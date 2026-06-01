@@ -14,7 +14,7 @@ This project follows a simple release-note format:
 
 ### Added
 
-- Nothing yet.
+- Settings now shows the current app version and can check GitHub Releases for manual updates.
 
 ### Changed
 

@@ -328,6 +328,7 @@ stateDiagram-v2
 | --- | --- | --- |
 | Done | 程序坞入口 | 普通 macOS 用户能在 Dock 里看到、切换和退出 mahjong；应用图标复用红中麻将牌。 |
 | Done | Sparkle 自动更新决策 | 已记录早期 1.x 继续手动更新，待 Developer ID 签名、公证和 feed 托管稳定后再集成 Sparkle。 |
+| Done | 版本显示与检查 | Settings 已显示当前版本，并可手动检查 GitHub Release 上的新版本。 |
 | Done | Provider 请求模板 | 已升级 issue template，用于统一收集数据路径、权限模型、隐私边界和安全样例。 |
 | Done | Provider scaffold/template | 已增加 Provider scaffold 文档，固定实现文件、descriptor、fixture 和文档更新清单。 |
 | P1 | 更多 Provider | 优先评估 Aider、Gemini CLI、Cursor、Windsurf、Goose、Continue。 |

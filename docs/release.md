@@ -94,6 +94,7 @@ Use this checklist before tagging `v1.0.0`.
 - [ ] The `.app` appears in the Dock with the red Mahjong tile icon.
 - [ ] Closing the Board hides the window without quitting the app.
 - [ ] The pet and menu bar item can reopen the Board.
+- [ ] Settings shows the current version and can open the latest GitHub Release when an update is available.
 - [ ] Privacy mode hides task titles, summaries, model names, token values, token analytics totals, future-plan notes, and detailed diagnostic paths.
 - [ ] Codex, Claude CLI, Claude Desktop, Hermes, ChatGPT Desktop, OpenClaw, terminal runtime, and desktop runtime diagnostics each show a clear enabled, disabled, missing path, no data, failed, or OK state.
 

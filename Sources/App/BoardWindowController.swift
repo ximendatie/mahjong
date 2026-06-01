@@ -47,7 +47,7 @@ final class BoardWindowController: NSObject, NSWindowDelegate {
                 return
             }
 
-            NSApp.activate(ignoringOtherApps: true)
+            NSApp.activate()
             self.window.centerIfNeeded()
             self.window.makeKeyAndOrderFront(nil)
         }

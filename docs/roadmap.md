@@ -263,6 +263,8 @@ stateDiagram-v2
 
 目标版本：`1.0`
 
+第六阶段不以新增大功能为主，而是收口、验收、稳定化和发布可信度建设。
+
 1.0 应包含：
 
 - 稳定的 Provider registry。
@@ -274,6 +276,36 @@ stateDiagram-v2
 - 清晰的数据访问文档。
 - 贡献者文档。
 - 安静、稳定、适合日常使用的 UI。
+
+#### P0 发布前验收
+
+| 模块 | 任务 | 验收标准 |
+| --- | --- | --- |
+| 稳定性 | 跑通 `swift build`、`swift test`、release zip、release dmg | 本地和 CI 都能稳定产出构建物。 |
+| 常驻体验 | 检查 Board 关闭、菜单栏、桌宠、退出入口 | App 可以全天常驻，不误退出，且能明确退出。 |
+| 隐私边界 | 审计 Provider 读取路径、展示字段和隐私模式 | 隐私模式下不暴露标题、摘要、模型、token、token 统计总量、未来计划 notes 和详细诊断路径。 |
+| Provider 质量 | Codex、Claude CLI、Claude Desktop、Hermes、ChatGPT、OpenClaw 全量回归 | 每个 Provider 都有明确的有数据、无数据、权限缺失、关闭或失败状态。 |
+| Diagnostics | 统一诊断状态和失败文案 | 用户能知道为什么没有数据，以及下一步该做什么。 |
+| Release | 准备 1.0 release checklist | 版本号、构建、签名、公证、notes 和附件步骤明确。 |
+
+#### P1 产品打磨
+
+| 模块 | 任务 | 验收标准 |
+| --- | --- | --- |
+| UI polish | 检查 Board、Settings、Token Usage、Future Tasks、Runtime 列表 | 空状态清晰，长文本不挤压或重叠。 |
+| 性能 | 检查刷新频率、后台扫描、Accessibility 读取频率 | 常驻时 CPU 占用稳定，不频繁打扰系统。 |
+| Provider registry | 复查新增 Provider 的接入面 | 新 Provider 不需要修改无关 UI 文件。 |
+| 测试覆盖 | 补齐核心 parser fixture 和状态归类测试 | 本地数据格式变化时能及时发现回归。 |
+| 文档 | 更新 README、隐私文档、架构文档、Provider 开发指南 | 新用户和贡献者能按文档完成安装、理解边界、添加 Provider。 |
+
+#### P2 发布后增强
+
+| 模块 | 任务 | 验收标准 |
+| --- | --- | --- |
+| 自动更新 | 评估 Sparkle 是否进入 1.0 | 明确做或不做；不做则进入 post-1.0。 |
+| 可访问性 | 检查按钮标签、键盘可达性、颜色对比 | 基础可访问性不拖后腿。 |
+| 本地化 | 检查中文/英文文档和 UI 文案一致性 | 不出现明显中英状态不一致。 |
+| 发布传播 | 整理 launch checklist 和反馈入口 | 1.0 发布后能收集问题和 Provider 需求。 |
 
 1.0 前不优先做：
 

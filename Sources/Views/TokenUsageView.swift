@@ -16,6 +16,14 @@ struct TokenUsageView: View {
         summaries.reduce(0) { $0 + $1.taskCount }
     }
 
+    private var headerSummary: String {
+        if taskStore.isPrivacyModeEnabled {
+            return "Token statistics hidden by privacy mode"
+        }
+
+        return "\(summaries.count) 个 Agent · \(Formatters.tokens(totalTokens)) tokens"
+    }
+
     private var sessionTasks: [AgentTask] {
         taskStore.tasks
             .filter { task in
@@ -75,7 +83,7 @@ struct TokenUsageView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Agent Token 统计")
                     .font(.title2.weight(.semibold))
-                Text("\(summaries.count) 个 Agent · \(Formatters.tokens(totalTokens)) tokens")
+                Text(headerSummary)
                     .font(.callout.weight(.medium))
                     .foregroundStyle(.secondary)
             }

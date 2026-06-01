@@ -25,8 +25,8 @@ For ChatGPT Desktop, Accessibility access is used only to inspect control labels
 such as stop-generation buttons. mahjong does not read Accessibility text values
 from the conversation body.
 
-Privacy mode hides task titles, summaries, model hints, token usage, future-plan
-notes, and detailed diagnostic paths in the UI.
+Privacy mode hides task titles, summaries, model hints, token usage, token
+analytics totals, future-plan notes, and detailed diagnostic paths in the UI.
 
 ## What mahjong Does Not Do
 

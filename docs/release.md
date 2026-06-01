@@ -5,6 +5,7 @@ mahjong release artifacts are generated from the version in `VERSION`.
 ## Local Dry Run
 
 ```bash
+swift build
 swift test
 script/build_release_zip.sh
 script/build_release_dmg.sh
@@ -78,3 +79,32 @@ artifacts, and attaches them to the GitHub Release.
 
 The current workflow builds unsigned release artifacts. Developer ID signing and
 notarization require Apple credentials to be configured outside the repository.
+
+## 1.0 Release Checklist
+
+Use this checklist before tagging `v1.0.0`.
+
+### P0 Verification
+
+- [ ] `swift build` passes without new warnings.
+- [ ] `swift test` passes.
+- [ ] `script/build_release_zip.sh` creates `.build/dist/mahjong-1.0.0-macos.zip`.
+- [ ] `script/build_release_dmg.sh` creates `.build/dist/mahjong-1.0.0-macos.dmg`.
+- [ ] The `.app` launches, quits from the menu bar, and relaunches cleanly.
+- [ ] Closing the Board hides the window without quitting the app.
+- [ ] The pet and menu bar item can reopen the Board.
+- [ ] Privacy mode hides task titles, summaries, model names, token values, token analytics totals, future-plan notes, and detailed diagnostic paths.
+- [ ] Codex, Claude CLI, Claude Desktop, Hermes, ChatGPT Desktop, OpenClaw, terminal runtime, and desktop runtime diagnostics each show a clear enabled, disabled, missing path, no data, failed, or OK state.
+
+### P1 Product Pass
+
+- [ ] Board columns, Settings, Token Usage, Future Tasks, and Runtime list have useful empty states.
+- [ ] Long titles, provider names, model names, and paths truncate without overlapping.
+- [ ] Background refresh remains quiet during a 30-minute local run.
+- [ ] README screenshots, showcase page, privacy notes, architecture notes, and provider-development docs match the release behavior.
+
+### P2 Decision Log
+
+- [ ] Decide whether Sparkle auto-update ships in 1.0 or moves to post-1.0.
+- [ ] Check basic accessibility labels, keyboard reachability, and contrast.
+- [ ] Confirm Chinese and English docs describe the same provider and privacy boundaries.

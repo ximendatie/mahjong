@@ -23,7 +23,7 @@ enum OpenTargetHandler {
         let runningApp = NSWorkspace.shared.runningApplications.first {
             $0.bundleIdentifier == bundleIdentifier
         }
-        runningApp?.activate(options: [.activateIgnoringOtherApps])
+        runningApp?.activate()
     }
 
     private static func activateApp(named name: String) {
@@ -31,7 +31,6 @@ enum OpenTargetHandler {
         let runningApp = NSWorkspace.shared.runningApplications.first { app in
             app.localizedName?.lowercased().contains(lowercasedName) == true
         }
-        runningApp?.activate(options: [.activateIgnoringOtherApps])
+        runningApp?.activate()
     }
 }
-

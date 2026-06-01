@@ -40,10 +40,11 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private func setStatusItemEnabled(_ isEnabled: Bool) {
         if isEnabled {
             if statusItem == nil {
-                let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+                let item = NSStatusBar.system.statusItem(withLength: 82)
                 let menu = NSMenu()
                 menu.delegate = self
                 item.menu = menu
+                item.isVisible = true
                 statusItem = item
             }
             updateStatusItem()
@@ -55,12 +56,13 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     }
 
     private func updateStatusItem() {
-        guard let button = statusItem?.button else {
+        guard let statusItem, let button = statusItem.button else {
             return
         }
 
         button.image = nil
-        button.title = taskStore.runningCount > 0 ? "🀄️ \(taskStore.runningCount)" : "🀄️"
+        button.title = taskStore.runningCount > 0 ? "🀄️ \(taskStore.runningCount)" : "🀄️ mahjong"
+        statusItem.length = 82
         button.toolTip = "\(taskStore.runningCount) running, \(taskStore.runningAgentCount) agents"
     }
 

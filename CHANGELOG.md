@@ -15,6 +15,7 @@ This project follows a simple release-note format:
 ### Added
 
 - Settings now shows the current app version and can check GitHub Releases for manual updates.
+- Settings can hide the Dock icon after setup while keeping the menu bar and pet entry points.
 
 ### Changed
 

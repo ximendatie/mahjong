@@ -42,6 +42,10 @@ struct SettingsView: View {
                 taskStore.setMenuBarEnabled(isEnabled)
             }
 
+            DockIconToggleRow(isEnabled: taskStore.isDockIconEnabled) { isEnabled in
+                taskStore.setDockIconEnabled(isEnabled)
+            }
+
             VersionUpdateRow(versionChecker: versionChecker)
 
             LazyVGrid(columns: providerColumns, alignment: .leading, spacing: 10) {
@@ -181,6 +185,43 @@ struct VersionUpdateRow: View {
         default:
             .secondary
         }
+    }
+}
+
+struct DockIconToggleRow: View {
+    let isEnabled: Bool
+    let onChange: (Bool) -> Void
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 14) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Dock 图标")
+                    .font(.system(size: 14, weight: .semibold))
+                Text("显示 Dock 入口；关闭后保留右上角菜单栏和桌宠入口。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 16)
+
+            Toggle("", isOn: Binding(
+                get: { isEnabled },
+                set: { onChange($0) }
+            ))
+            .labelsHidden()
+            .toggleStyle(.switch)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 74, alignment: .center)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.9))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+        )
     }
 }
 

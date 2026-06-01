@@ -10,6 +10,7 @@ final class AgentTaskStore: ObservableObject {
     @Published private(set) var diagnostics: [ProviderDiagnostic]
     @Published private(set) var isPrivacyModeEnabled: Bool
     @Published private(set) var isMenuBarEnabled: Bool
+    @Published private(set) var isDockIconEnabled: Bool
     @Published private(set) var unreadCompletedCount: Int
 
     private static let futureTasksStorageKey = "local.mahjong.futureTasks"
@@ -17,6 +18,7 @@ final class AgentTaskStore: ObservableObject {
     private static let providerSettingsStorageKey = "local.mahjong.providerSettings"
     private static let privacyModeStorageKey = "local.mahjong.privacyMode"
     private static let menuBarModeStorageKey = "local.mahjong.menuBarMode"
+    private static let dockIconModeStorageKey = "local.mahjong.dockIconMode"
     private static let readCompletedTaskIDsStorageKey = "local.mahjong.readCompletedTaskIDs"
 
     private let descriptors: [AgentProviderDescriptor]
@@ -60,6 +62,7 @@ final class AgentTaskStore: ObservableObject {
         diagnostics = initialDiagnostics(for: loadedProviderSettings, descriptors: self.descriptors)
         isPrivacyModeEnabled = UserDefaults.standard.bool(forKey: Self.privacyModeStorageKey)
         isMenuBarEnabled = UserDefaults.standard.object(forKey: Self.menuBarModeStorageKey) as? Bool ?? true
+        isDockIconEnabled = UserDefaults.standard.object(forKey: Self.dockIconModeStorageKey) as? Bool ?? true
         let loadedReadCompletedTaskIDs = Self.loadReadCompletedTaskIDs()
         readCompletedTaskIDs = loadedReadCompletedTaskIDs ?? []
         hasInitializedCompletedReadState = loadedReadCompletedTaskIDs != nil
@@ -105,6 +108,11 @@ final class AgentTaskStore: ObservableObject {
     func setMenuBarEnabled(_ isEnabled: Bool) {
         isMenuBarEnabled = isEnabled
         UserDefaults.standard.set(isEnabled, forKey: Self.menuBarModeStorageKey)
+    }
+
+    func setDockIconEnabled(_ isEnabled: Bool) {
+        isDockIconEnabled = isEnabled
+        UserDefaults.standard.set(isEnabled, forKey: Self.dockIconModeStorageKey)
     }
 
     func tasks(for status: AgentTaskStatus) -> [AgentTask] {

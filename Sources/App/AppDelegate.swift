@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 @MainActor
@@ -7,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var petWindowController: PetWindowController?
     private var boardWindowController: BoardWindowController?
     private var menuBarController: MenuBarController?
+    private var cancellables: Set<AnyCancellable> = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupMainMenu()
@@ -23,6 +25,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.petWindowController = petWindowController
         self.menuBarController = menuBarController
 
+        taskStore.$isDockIconEnabled
+            .sink { [weak self] isEnabled in
+                self?.applyDockIconMode(isEnabled)
+            }
+            .store(in: &cancellables)
+
+        applyDockIconMode(taskStore.isDockIconEnabled)
         taskStore.startRefreshing()
         petWindowController.show()
     }
@@ -52,6 +61,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         appMenuItem.submenu = appMenu
 
         NSApp.mainMenu = mainMenu
+    }
+
+    private func applyDockIconMode(_ isEnabled: Bool) {
+        if isEnabled {
+            NSApp.setActivationPolicy(.regular)
+            setupMainMenu()
+        } else {
+            NSApp.setActivationPolicy(.accessory)
+            NSApp.mainMenu = nil
+        }
     }
 }
 

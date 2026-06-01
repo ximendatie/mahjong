@@ -33,6 +33,7 @@ current workload is visible at a glance.
 - Shows a floating Mahjong-tile desktop companion that reacts when local agents
   are working.
 - Shows a Dock entry for mahjong with the red Mahjong tile app icon.
+- Lets users hide the Dock entry after setup and keep mahjong as a menu bar pet.
 - Opens a mahjong Board with running, completed, and archived task cards.
 - Detects supported desktop apps and terminal agent processes.
 - Shows the current app version and checks GitHub Releases for manual updates.

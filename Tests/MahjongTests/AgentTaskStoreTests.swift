@@ -9,6 +9,7 @@ final class AgentTaskStoreTests: XCTestCase {
         UserDefaults.standard.removeObject(forKey: "local.mahjong.providerSettings")
         UserDefaults.standard.removeObject(forKey: "local.mahjong.privacyMode")
         UserDefaults.standard.removeObject(forKey: "local.mahjong.menuBarMode")
+        UserDefaults.standard.removeObject(forKey: "local.mahjong.dockIconMode")
         UserDefaults.standard.removeObject(forKey: "local.mahjong.readCompletedTaskIDs")
     }
 
@@ -254,6 +255,17 @@ final class AgentTaskStoreTests: XCTestCase {
 
         let reloadedStore = AgentTaskStore(providers: [], runtimeProviders: [])
         XCTAssertFalse(reloadedStore.isMenuBarEnabled)
+    }
+
+    func testDockIconModeDefaultsOnAndPersists() {
+        let store = AgentTaskStore(providers: [], runtimeProviders: [])
+
+        XCTAssertTrue(store.isDockIconEnabled)
+
+        store.setDockIconEnabled(false)
+
+        let reloadedStore = AgentTaskStore(providers: [], runtimeProviders: [])
+        XCTAssertFalse(reloadedStore.isDockIconEnabled)
     }
 
     func testTokenUsageSummariesGroupByAgentAndFilterDateRange() async throws {

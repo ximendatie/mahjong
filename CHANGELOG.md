@@ -14,6 +14,28 @@ This project follows a simple release-note format:
 
 ### Added
 
+- Nothing yet.
+
+### Changed
+
+- Nothing yet.
+
+### Fixed
+
+- Nothing yet.
+
+### Privacy/Safety
+
+- Nothing yet.
+
+### Known Issues
+
+- Signed and notarized releases require Apple Developer credentials configured outside the repository.
+
+## 0.5.2 - 2026-06-01
+
+### Added
+
 - Settings now shows the current app version and can check GitHub Releases for manual updates.
 - Settings can hide the Dock icon after setup while keeping the menu bar and pet entry points.
 

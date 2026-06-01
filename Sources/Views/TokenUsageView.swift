@@ -263,6 +263,7 @@ private struct TokenUsageDistributionBar: View {
 private struct SessionTokenTreemapView: View {
     let tasks: [AgentTask]
     let totalTokens: Int
+    @State private var hoveredEntryID: String?
 
     private var entries: [SessionTokenTreemapEntry] {
         let threshold = max(1, Int((Double(totalTokens) * 0.01).rounded(.up)))
@@ -329,15 +330,25 @@ private struct SessionTokenTreemapView: View {
             GeometryReader { proxy in
                 ZStack(alignment: .topLeading) {
                     ForEach(nodes(in: proxy.size)) { node in
+                        let isHovered = hoveredEntryID == node.entry.id
                         SessionTokenTreemapTile(
                             rank: node.rank,
                             entry: node.entry,
                             totalTokens: totalTokens,
                             color: tokenUsageColor(node.colorIndex),
-                            size: node.rect.size
+                            size: node.rect.size,
+                            isHovered: isHovered,
+                            onHoverChanged: { hovering in
+                                if hovering {
+                                    hoveredEntryID = node.entry.id
+                                } else if hoveredEntryID == node.entry.id {
+                                    hoveredEntryID = nil
+                                }
+                            }
                         )
                         .frame(width: node.rect.width, height: node.rect.height)
                         .position(x: node.rect.midX, y: node.rect.midY)
+                        .zIndex(isHovered ? 1 : 0)
                     }
                 }
             }
@@ -425,7 +436,8 @@ private struct SessionTokenTreemapTile: View {
     let totalTokens: Int
     let color: Color
     let size: CGSize
-    @State private var isHovered = false
+    let isHovered: Bool
+    let onHoverChanged: (Bool) -> Void
 
     private var isLarge: Bool {
         size.width >= 240 && size.height >= 145
@@ -459,7 +471,7 @@ private struct SessionTokenTreemapTile: View {
         .foregroundStyle(.primary)
         .contentShape(Rectangle())
         .onHover { hovering in
-            isHovered = hovering
+            onHoverChanged(hovering)
         }
         .scaleEffect(isHovered ? 1.006 : 1)
         .animation(.easeOut(duration: 0.12), value: isHovered)
@@ -468,15 +480,15 @@ private struct SessionTokenTreemapTile: View {
     private var tileBackground: some View {
         ZStack(alignment: .leading) {
             RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(Color.primary.opacity(isHovered ? 0.09 : 0.065))
+                .fill(isHovered ? Color(nsColor: .controlBackgroundColor) : Color.primary.opacity(0.065))
             RoundedRectangle(cornerRadius: 6, style: .continuous)
                 .strokeBorder(isHovered ? color.opacity(0.55) : Color.primary.opacity(0.035), lineWidth: isHovered ? 1 : 0.5)
             Rectangle()
-                .fill(color.opacity(isHovered ? 0.85 : 0.62))
+                .fill(color.opacity(isHovered ? 1 : 0.62))
                 .frame(width: isHovered ? 6 : 4)
             VStack(spacing: 0) {
                 Rectangle()
-                    .fill(color.opacity(isHovered ? 0.42 : 0.28))
+                    .fill(color.opacity(isHovered ? 0.9 : 0.28))
                     .frame(height: isLarge ? 4 : 3)
                 Spacer(minLength: 0)
             }
@@ -590,7 +602,7 @@ private struct SessionTokenTreemapTile: View {
         }
         .padding(10)
         .frame(width: min(max(size.width * 0.5, 190), 300), alignment: .leading)
-        .background(.regularMaterial)
+        .background(Color(nsColor: .windowBackgroundColor))
         .overlay(
             RoundedRectangle(cornerRadius: 7, style: .continuous)
                 .strokeBorder(color.opacity(0.38), lineWidth: 0.75)

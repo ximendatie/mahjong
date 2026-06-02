@@ -7,6 +7,7 @@ enum AgentProviderID: String, CaseIterable, Codable, Sendable {
     case claudeDesktop = "claude-desktop"
     case hermes
     case openClaw = "openclaw"
+    case traeCN = "trae-cn"
     case terminalAgents = "terminal-agents"
     case desktopApps = "desktop-apps"
 }
@@ -77,6 +78,14 @@ struct AgentProviderDescriptor: Identifiable, Equatable, Sendable {
                 dataPaths: ["\(home)/.openclaw/agents"],
                 privacyDescription: "Reads OpenClaw local session metadata, trajectory events, model, timestamps, and token usage.",
                 detail: "Reads OpenClaw local session and trajectory files."
+            ),
+            AgentProviderDescriptor(
+                id: .traeCN,
+                displayName: "Trae CN",
+                defaultEnabled: true,
+                dataPaths: ["\(home)/Library/Application Support/Trae CN/logs"],
+                privacyDescription: "Reads Trae CN ai-agent log timestamps and session/task identifiers without parsing conversation text.",
+                detail: "Reads Trae CN ai-agent log metadata."
             ),
             AgentProviderDescriptor(
                 id: .terminalAgents,

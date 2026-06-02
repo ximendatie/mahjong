@@ -101,6 +101,7 @@ struct TaskAgentIconBadgeView: View {
         case .claude: "brain.head.profile"
         case .hermes: "bolt.circle"
         case .openClaw: "terminal"
+        case .traeCN: "sparkle.magnifyingglass"
         case .unknown: "cpu"
         }
     }
@@ -112,6 +113,7 @@ struct TaskAgentIconBadgeView: View {
         case .claude: .orange
         case .hermes: .purple
         case .openClaw: .blue
+        case .traeCN: .mint
         case .unknown: .secondary
         }
     }
@@ -125,12 +127,13 @@ enum AgentTaskIconResolver {
         case claude
         case hermes
         case openClaw
+        case traeCN
         case unknown
     }
 
     static func image(for task: AgentTask) -> NSImage? {
-        if kind(for: task) == .hermes,
-           let resourceURL = Bundle.main.url(forResource: "AgentIcons/hermes", withExtension: "png") {
+        if let iconResourceName = iconResourceName(for: task),
+           let resourceURL = Bundle.main.url(forResource: iconResourceName, withExtension: "png") {
             return NSImage(contentsOf: resourceURL)
         }
 
@@ -168,7 +171,22 @@ enum AgentTaskIconResolver {
             return .openClaw
         }
 
+        if lowercased.contains("trae") {
+            return .traeCN
+        }
+
         return .unknown
+    }
+
+    private static func iconResourceName(for task: AgentTask) -> String? {
+        switch kind(for: task) {
+        case .hermes:
+            return "AgentIcons/hermes"
+        case .traeCN:
+            return "AgentIcons/trae-cn"
+        case .chatGPT, .codex, .claude, .openClaw, .unknown:
+            return nil
+        }
     }
 
     private static func bundleIdentifier(for task: AgentTask) -> String? {
@@ -183,6 +201,8 @@ enum AgentTaskIconResolver {
             return AgentRuntimeIconBundle.hermes
         case .openClaw:
             return AgentRuntimeIconBundle.openClaw
+        case .traeCN:
+            return AgentRuntimeIconBundle.traeCN
         case .unknown:
             return nil
         }

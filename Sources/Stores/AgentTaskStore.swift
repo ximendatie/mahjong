@@ -46,7 +46,8 @@ final class AgentTaskStore: ObservableObject {
             ClaudeLocalProvider(),
             ClaudeDesktopLocalProvider(),
             HermesLocalProvider(),
-            OpenClawLocalProvider()
+            OpenClawLocalProvider(),
+            TraeCNLocalProvider()
         ]
         self.runtimeProviders = runtimeProviders ?? [
             TerminalAgentRuntimeProvider(),

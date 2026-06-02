@@ -116,9 +116,16 @@ struct DesktopAppRuntimeProvider: AgentRuntimeProvider {
 
     func fetchRuntimes() async -> [AgentRuntime] {
         await MainActor.run {
-            NSWorkspace.shared.runningApplications.compactMap { app in
+            var runtimes = NSWorkspace.shared.runningApplications.compactMap { app in
                 runtime(for: app)
             }
+
+            if !runtimes.contains(where: { $0.id == "desktop:trae" }),
+               ProcessListReader.readProcessList().split(separator: "\n").contains(where: ProcessListReader.isTraeCNDesktopProcess) {
+                runtimes.append(Self.traeCNRuntime(bundleIdentifier: AgentRuntimeIconBundle.traeCN))
+            }
+
+            return runtimes
         }
     }
 
@@ -128,13 +135,17 @@ struct DesktopAppRuntimeProvider: AgentRuntimeProvider {
             return nil
         }
 
+        return Self.runtime(bundleIdentifier: bundleIdentifier)
+    }
+
+    static func runtime(bundleIdentifier: String) -> AgentRuntime? {
         switch bundleIdentifier {
         case "com.openai.chat":
             return AgentRuntime(
                 id: "desktop:chatgpt",
                 name: "ChatGPT Desktop",
                 provider: "OpenAI",
-                providerID: providerID,
+                providerID: .desktopApps,
                 kind: .desktopApp,
                 summary: "已运行；当前不安全解析对话任务粒度",
                 bundleIdentifier: bundleIdentifier,
@@ -145,7 +156,7 @@ struct DesktopAppRuntimeProvider: AgentRuntimeProvider {
                 id: "desktop:codex",
                 name: "Codex Desktop",
                 provider: "Codex",
-                providerID: providerID,
+                providerID: .desktopApps,
                 kind: .desktopApp,
                 summary: "已运行；任务卡从本地 Codex session 读取",
                 bundleIdentifier: bundleIdentifier,
@@ -156,7 +167,7 @@ struct DesktopAppRuntimeProvider: AgentRuntimeProvider {
                 id: "desktop:claude",
                 name: "Claude Desktop",
                 provider: "Claude",
-                providerID: providerID,
+                providerID: .desktopApps,
                 kind: .desktopApp,
                 summary: "已运行；任务卡从可用本地 session 记录读取",
                 bundleIdentifier: bundleIdentifier,
@@ -167,7 +178,7 @@ struct DesktopAppRuntimeProvider: AgentRuntimeProvider {
                 id: "desktop:openclaw",
                 name: "OpenClaw Desktop",
                 provider: "OpenClaw",
-                providerID: providerID,
+                providerID: .desktopApps,
                 kind: .desktopApp,
                 summary: "已运行；仅观测桌面端运行状态",
                 bundleIdentifier: bundleIdentifier,
@@ -178,15 +189,31 @@ struct DesktopAppRuntimeProvider: AgentRuntimeProvider {
                 id: "desktop:hermes",
                 name: "Hermes Agent",
                 provider: "Hermes",
-                providerID: providerID,
+                providerID: .desktopApps,
                 kind: .desktopApp,
                 summary: "已运行；任务卡从本地 Hermes state.db 读取",
                 bundleIdentifier: bundleIdentifier,
                 iconBundleIdentifier: AgentRuntimeIconBundle.hermes
             )
+        case AgentRuntimeIconBundle.traeCN, "\(AgentRuntimeIconBundle.traeCN).helper":
+            return traeCNRuntime(bundleIdentifier: bundleIdentifier)
         default:
             return nil
         }
+    }
+
+    static func traeCNRuntime(bundleIdentifier: String) -> AgentRuntime {
+        AgentRuntime(
+            id: "desktop:trae",
+            name: "Trae CN",
+            provider: "Trae",
+            providerID: .desktopApps,
+            kind: .desktopApp,
+            summary: "已运行；仅观测桌面端运行状态，不读取工程或会话内容",
+            bundleIdentifier: bundleIdentifier,
+            iconBundleIdentifier: AgentRuntimeIconBundle.traeCN,
+            iconResourceName: "AgentIcons/trae-cn"
+        )
     }
 }
 
@@ -196,6 +223,7 @@ enum AgentRuntimeIconBundle {
     static let claude = "com.anthropic.claudefordesktop"
     static let hermes = "com.nousresearch.hermes"
     static let openClaw = "ai.openclaw.mac"
+    static let traeCN = "cn.trae.app"
 }
 
 enum ProcessListReader {
@@ -293,5 +321,13 @@ enum ProcessListReader {
         ]
 
         return !excludedMarkers.contains { args.contains($0) }
+    }
+
+    static func isTraeCNDesktopProcess(_ line: Substring) -> Bool {
+        guard let args = arguments(from: line) else {
+            return false
+        }
+
+        return args.contains("/Trae CN.app/Contents/MacOS/Electron")
     }
 }

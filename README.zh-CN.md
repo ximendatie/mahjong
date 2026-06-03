@@ -6,7 +6,7 @@
 [下载 Release](https://github.com/ximendatie/mahjong/releases) ·
 [发布传播手册](docs/launch.md)
 
-mahjong 是一个本地优先的 macOS 桌面伴侣，用来观察 Codex、Claude、ChatGPT、Hermes 和其他 AI Agent 在桌面应用与终端会话里的工作状态。
+mahjong 是一个本地优先的 macOS 桌面伴侣，用来观察 Codex、Claude、ChatGPT、Hermes、Mira 和其他 AI Agent 在桌面应用与终端会话里的工作状态。
 
 它采用本地优先、默认只读的设计：应用帮助你了解各个 Agent 正在做什么，但不会上传数据、修改 provider 配置，也不会控制其他应用。
 
@@ -92,6 +92,7 @@ mahjong 默认只做只读的本地观察：
 | OpenClaw | 暂不解析任务元数据。 | 仅检测 OpenClaw Desktop 和 OpenClaw gateway/CLI 进程是否存在。 | 仅做存在性检测。 |
 | ChatGPT Desktop | 不解析对话正文；使用本地对话缓存修改时间作为最近活动兜底。 | 通过 `NSWorkspace` 检测应用是否运行，通过 Accessibility 按钮标签判断生成状态。 | Accessibility 是可选能力，只用于判断生成状态标签。 |
 | Trae CN | 读取 ai-agent 日志中的时间戳和 session/task 标识；不解析对话正文。 | 通过 `NSWorkspace` 检测 Trae CN 桌面端运行态，并用进程列表兜底。 | 仅使用本地日志元数据。 |
+| Mira | 暂不解析任务元数据。 | 通过 `NSWorkspace` 检测 Mira 桌面端运行态，并用进程列表兜底。 | 仅做存在性检测。 |
 
 ## 文档
 

@@ -14,6 +14,7 @@ final class TraeCNLocalProviderTests: XCTestCase {
     }
 
     func testFetchTasksReadsTraeCNAgentLogMetadata() async throws {
+        let timestamp = ISO8601DateFormatter().string(from: Date())
         let home = FileManager.default.temporaryDirectory
             .appendingPathComponent("mahjong-trae-tests-\(UUID().uuidString)", isDirectory: true)
         let logDirectory = home
@@ -26,8 +27,8 @@ final class TraeCNLocalProviderTests: XCTestCase {
         try FileManager.default.createDirectory(at: logDirectory, withIntermediateDirectories: true)
         let logURL = logDirectory.appendingPathComponent("ai-agent_0_1780307835419_stdout.log")
         try """
-        2026-06-02T16:10:53.123430+08:00  INFO unrelated log line
-        2026-06-02T16:10:53.123430+08:00  INFO process_ipc_request:route:chat:do_chat: session_id=6a1e57868662d364fffb938d task_id=6a1e900c8662d364fffb944c message_id=6a1e900c8662d364fffb944b
+        \(timestamp)  INFO unrelated log line
+        \(timestamp)  INFO process_ipc_request:route:chat:do_chat: session_id=6a1e57868662d364fffb938d task_id=6a1e900c8662d364fffb944c message_id=6a1e900c8662d364fffb944b
         """.write(to: logURL, atomically: true, encoding: .utf8)
 
         let provider = TraeCNLocalProvider(homeDirectory: home)

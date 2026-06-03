@@ -120,9 +120,17 @@ struct DesktopAppRuntimeProvider: AgentRuntimeProvider {
                 runtime(for: app)
             }
 
-            if !runtimes.contains(where: { $0.id == "desktop:trae" }),
-               ProcessListReader.readProcessList().split(separator: "\n").contains(where: ProcessListReader.isTraeCNDesktopProcess) {
-                runtimes.append(Self.traeCNRuntime(bundleIdentifier: AgentRuntimeIconBundle.traeCN))
+            let needsTraeFallback = !runtimes.contains { $0.id == "desktop:trae" }
+            let needsMiraFallback = !runtimes.contains { $0.id == "desktop:mira" }
+            if needsTraeFallback || needsMiraFallback {
+                let processLines = ProcessListReader.readProcessList().split(separator: "\n")
+                if needsTraeFallback, processLines.contains(where: ProcessListReader.isTraeCNDesktopProcess) {
+                    runtimes.append(Self.traeCNRuntime(bundleIdentifier: AgentRuntimeIconBundle.traeCN))
+                }
+
+                if needsMiraFallback, processLines.contains(where: ProcessListReader.isMiraDesktopProcess) {
+                    runtimes.append(Self.miraRuntime(bundleIdentifier: AgentRuntimeIconBundle.mira))
+                }
             }
 
             return runtimes
@@ -195,6 +203,8 @@ struct DesktopAppRuntimeProvider: AgentRuntimeProvider {
                 bundleIdentifier: bundleIdentifier,
                 iconBundleIdentifier: AgentRuntimeIconBundle.hermes
             )
+        case AgentRuntimeIconBundle.mira:
+            return miraRuntime(bundleIdentifier: bundleIdentifier)
         case AgentRuntimeIconBundle.traeCN, "\(AgentRuntimeIconBundle.traeCN).helper":
             return traeCNRuntime(bundleIdentifier: bundleIdentifier)
         default:
@@ -215,6 +225,19 @@ struct DesktopAppRuntimeProvider: AgentRuntimeProvider {
             iconResourceName: "AgentIcons/trae-cn"
         )
     }
+
+    static func miraRuntime(bundleIdentifier: String) -> AgentRuntime {
+        AgentRuntime(
+            id: "desktop:mira",
+            name: "Mira",
+            provider: "Mira",
+            providerID: .desktopApps,
+            kind: .desktopApp,
+            summary: "已运行；仅观测桌面端运行状态，不读取工程或会话内容",
+            bundleIdentifier: bundleIdentifier,
+            iconBundleIdentifier: AgentRuntimeIconBundle.mira
+        )
+    }
 }
 
 enum AgentRuntimeIconBundle {
@@ -224,6 +247,7 @@ enum AgentRuntimeIconBundle {
     static let hermes = "com.nousresearch.hermes"
     static let openClaw = "ai.openclaw.mac"
     static let traeCN = "cn.trae.app"
+    static let mira = "net.byteintl.mira"
 }
 
 enum ProcessListReader {
@@ -329,5 +353,13 @@ enum ProcessListReader {
         }
 
         return args.contains("/Trae CN.app/Contents/MacOS/Electron")
+    }
+
+    static func isMiraDesktopProcess(_ line: Substring) -> Bool {
+        guard let args = arguments(from: line) else {
+            return false
+        }
+
+        return args.contains("/Mira.app/Contents/MacOS/Mira")
     }
 }

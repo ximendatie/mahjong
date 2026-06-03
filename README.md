@@ -110,7 +110,7 @@ mahjong uses read-only local observation by default:
 | Terminal agents | No conversation parsing. | Reads process metadata from `ps` for Codex, Claude, Hermes, and OpenClaw. | Process list only. |
 | OpenClaw | Not parsed yet. | Detects OpenClaw Desktop and OpenClaw gateway/CLI process presence. | Presence detection only. |
 | ChatGPT Desktop | Does not parse conversation text. Uses local conversation cache modification times as a recent-activity fallback. | Detects app presence through `NSWorkspace` and checks Accessibility button labels for generation state. | Accessibility is optional and only used for generation-state labels. |
-| Trae CN | Reads ai-agent log timestamps plus session/task identifiers; does not parse conversation text. | Detects Trae CN Desktop app presence through `NSWorkspace` with process fallback. | Local log metadata only. |
+| Trae CN | Reads ai-agent `do_chat` event timestamps plus session/task identifiers; does not parse conversation text. | Detects Trae CN Desktop app presence through `NSWorkspace` with process fallback. | Local log metadata only. |
 | Mira | Not parsed yet. | Detects Mira Desktop app presence through `NSWorkspace` with process fallback. | Presence detection only. |
 
 ## Documentation

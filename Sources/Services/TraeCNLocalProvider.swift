@@ -124,15 +124,17 @@ struct TraeCNLocalProvider: AgentTaskProvider {
 
     static func event(from line: Substring) -> TraeCNLogEvent? {
         guard let timestamp = timestamp(from: line),
+              line.contains("process_ipc_request:route:chat:do_chat:"),
               line.contains("session_id="),
-              let sessionID = firstMatch(in: line, pattern: #"session_id=([0-9a-f]{24})"#)
+              let sessionID = firstMatch(in: line, pattern: #"session_id=([0-9a-f]{24})"#),
+              let taskID = firstMatch(in: line, pattern: #"task_id=([0-9a-f]{24})"#)
         else {
             return nil
         }
 
         return TraeCNLogEvent(
             sessionID: sessionID,
-            taskID: firstMatch(in: line, pattern: #"task_id=([0-9a-f]{24})"#),
+            taskID: taskID,
             timestamp: timestamp
         )
     }

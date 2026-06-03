@@ -91,7 +91,7 @@ mahjong 默认只做只读的本地观察：
 | 终端 Agent | 不解析对话内容。 | 从 `ps` 读取 Codex、Claude、Hermes 和 OpenClaw 的进程元数据。 | 仅使用进程列表。 |
 | OpenClaw | 暂不解析任务元数据。 | 仅检测 OpenClaw Desktop 和 OpenClaw gateway/CLI 进程是否存在。 | 仅做存在性检测。 |
 | ChatGPT Desktop | 不解析对话正文；使用本地对话缓存修改时间作为最近活动兜底。 | 通过 `NSWorkspace` 检测应用是否运行，通过 Accessibility 按钮标签判断生成状态。 | Accessibility 是可选能力，只用于判断生成状态标签。 |
-| Trae CN | 读取 ai-agent 日志中的时间戳和 session/task 标识；不解析对话正文。 | 通过 `NSWorkspace` 检测 Trae CN 桌面端运行态，并用进程列表兜底。 | 仅使用本地日志元数据。 |
+| Trae CN | 读取 ai-agent `do_chat` 事件中的时间戳和 session/task 标识；不解析对话正文。 | 通过 `NSWorkspace` 检测 Trae CN 桌面端运行态，并用进程列表兜底。 | 仅使用本地日志元数据。 |
 | Mira | 暂不解析任务元数据。 | 通过 `NSWorkspace` 检测 Mira 桌面端运行态，并用进程列表兜底。 | 仅做存在性检测。 |
 
 ## 文档

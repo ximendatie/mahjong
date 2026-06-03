@@ -12,7 +12,7 @@ It does not upload session data and does not control provider apps.
 | Claude CLI | `~/.claude/projects/**/*.jsonl` |
 | Claude Desktop | `~/Library/Application Support/Claude-3p/local-agent-mode-sessions/**/local_*.json`, `~/Library/Application Support/Claude-3p/claude-code-sessions/**/local_*.json` |
 | Hermes | `~/.hermes/state.db` |
-| Trae CN | `~/Library/Application Support/Trae CN/logs/**/Modular/ai-agent_*_stdout.log` session/task identifiers and timestamps |
+| Trae CN | `~/Library/Application Support/Trae CN/logs/**/Modular/ai-agent_*_stdout.log` `do_chat` session/task identifiers and timestamps |
 | Desktop apps | Running application bundle identifiers from `NSWorkspace` |
 | Terminal agents | Process metadata from `/bin/ps` |
 

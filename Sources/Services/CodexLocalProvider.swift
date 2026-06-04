@@ -185,37 +185,77 @@ struct CodexLocalProvider: AgentTaskProvider {
         let sessionsDirectory = codexDirectory.appendingPathComponent("sessions", isDirectory: true)
         let archivedSessionsDirectory = codexDirectory.appendingPathComponent("archived_sessions", isDirectory: true)
         let sessionFiles = findJSONLFiles(in: sessionsDirectory) + findJSONLFiles(in: archivedSessionsDirectory)
+        let sortedSessionFiles = sessionFiles.sorted { lhs, rhs in
+            (fileModifiedAt(lhs) ?? .distantPast) > (fileModifiedAt(rhs) ?? .distantPast)
+        }
+
+        if let recentSummary = readUsageLimits(from: Array(sortedSessionFiles.prefix(24))) {
+            return recentSummary
+        }
+
+        return readUsageLimits(from: sortedSessionFiles)
+    }
+
+    private func readUsageLimits(from sessionFiles: [URL]) -> CodexUsageLimitSummary? {
         var latestSummary: CodexUsageLimitSummary?
         var latestNonZeroSummary: CodexUsageLimitSummary?
 
         for fileURL in sessionFiles {
-            guard let content = try? String(contentsOf: fileURL, encoding: .utf8) else {
+            guard let snapshot = readUsageLimitSnapshot(from: fileURL) else {
                 continue
             }
 
-            for line in content.split(separator: "\n") {
-                guard
-                    let data = String(line).data(using: .utf8),
-                    let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                    let payload = object["payload"] as? [String: Any],
-                    let rateLimits = payload["rate_limits"] as? [String: Any],
-                    let summary = codexUsageLimitSummary(from: rateLimits, timestamp: parseDate(object["timestamp"] as? String))
-                else {
-                    continue
-                }
+            if let summary = snapshot.latest,
+               latestSummary == nil || summary.observedAt > latestSummary!.observedAt {
+                latestSummary = summary
+            }
 
-                if latestSummary == nil || summary.observedAt > latestSummary!.observedAt {
-                    latestSummary = summary
-                }
-
-                if isNonZeroUsageLimit(summary),
-                   latestNonZeroSummary == nil || summary.observedAt > latestNonZeroSummary!.observedAt {
-                    latestNonZeroSummary = summary
-                }
+            if let summary = snapshot.latestNonZero,
+               latestNonZeroSummary == nil || summary.observedAt > latestNonZeroSummary!.observedAt {
+                latestNonZeroSummary = summary
             }
         }
 
         return latestNonZeroSummary ?? latestSummary
+    }
+
+    private func readUsageLimitSnapshot(from fileURL: URL) -> CodexUsageLimitSnapshot? {
+        guard let content = try? String(contentsOf: fileURL, encoding: .utf8) else {
+            return nil
+        }
+
+        var latestSummary: CodexUsageLimitSummary?
+        var latestNonZeroSummary: CodexUsageLimitSummary?
+
+        for line in content.split(separator: "\n").reversed() {
+            guard
+                let data = String(line).data(using: .utf8),
+                let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                let payload = object["payload"] as? [String: Any],
+                let rateLimits = payload["rate_limits"] as? [String: Any],
+                let summary = codexUsageLimitSummary(from: rateLimits, timestamp: parseDate(object["timestamp"] as? String))
+            else {
+                continue
+            }
+
+            if latestSummary == nil {
+                latestSummary = summary
+            }
+
+            if latestNonZeroSummary == nil, isNonZeroUsageLimit(summary) {
+                latestNonZeroSummary = summary
+            }
+
+            if latestSummary != nil && latestNonZeroSummary != nil {
+                break
+            }
+        }
+
+        guard latestSummary != nil || latestNonZeroSummary != nil else {
+            return nil
+        }
+
+        return CodexUsageLimitSnapshot(latest: latestSummary, latestNonZero: latestNonZeroSummary)
     }
 
     private func codexUsageLimitSummary(
@@ -421,4 +461,9 @@ private struct CodexSessionMetadata {
     var model: String?
     var cwd: String?
     var totalTokens = 0
+}
+
+private struct CodexUsageLimitSnapshot {
+    let latest: CodexUsageLimitSummary?
+    let latestNonZero: CodexUsageLimitSummary?
 }

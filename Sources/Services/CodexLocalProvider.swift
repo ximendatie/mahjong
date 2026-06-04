@@ -186,6 +186,7 @@ struct CodexLocalProvider: AgentTaskProvider {
         let archivedSessionsDirectory = codexDirectory.appendingPathComponent("archived_sessions", isDirectory: true)
         let sessionFiles = findJSONLFiles(in: sessionsDirectory) + findJSONLFiles(in: archivedSessionsDirectory)
         var latestSummary: CodexUsageLimitSummary?
+        var latestNonZeroSummary: CodexUsageLimitSummary?
 
         for fileURL in sessionFiles {
             guard let content = try? String(contentsOf: fileURL, encoding: .utf8) else {
@@ -206,10 +207,15 @@ struct CodexLocalProvider: AgentTaskProvider {
                 if latestSummary == nil || summary.observedAt > latestSummary!.observedAt {
                     latestSummary = summary
                 }
+
+                if isNonZeroUsageLimit(summary),
+                   latestNonZeroSummary == nil || summary.observedAt > latestNonZeroSummary!.observedAt {
+                    latestNonZeroSummary = summary
+                }
             }
         }
 
-        return latestSummary
+        return latestNonZeroSummary ?? latestSummary
     }
 
     private func codexUsageLimitSummary(
@@ -247,6 +253,10 @@ struct CodexLocalProvider: AgentTaskProvider {
             windowMinutes: windowMinutes,
             resetsAt: Date(timeIntervalSince1970: resetSeconds)
         )
+    }
+
+    private func isNonZeroUsageLimit(_ summary: CodexUsageLimitSummary) -> Bool {
+        summary.primary.usedPercent > 0 || (summary.secondary?.usedPercent ?? 0) > 0
     }
 
     private func findJSONLFiles(in directory: URL) -> [URL] {

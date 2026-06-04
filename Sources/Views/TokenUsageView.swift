@@ -4,7 +4,7 @@ import AppKit
 struct TokenUsageView: View {
     @ObservedObject var taskStore: AgentTaskStore
     @State private var selectedRange = TokenUsageTimeRange.all
-    @State private var codexUsageLimits: CodexUsageLimitSummary?
+    @State private var codexUsageLimitState = CodexUsageLimitViewState.loading
 
     private var summaries: [TokenUsageSummary] {
         taskStore.tokenUsageSummaries(for: selectedRange)
@@ -52,9 +52,7 @@ struct TokenUsageView: View {
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
-                        if let codexUsageLimits {
-                            CodexRemainingUsageCard(summary: codexUsageLimits)
-                        }
+                        CodexRemainingUsageCard(state: codexUsageLimitState)
 
                         if summaries.isEmpty {
                             TokenUsageEmptyState(
@@ -118,48 +116,56 @@ struct TokenUsageView: View {
     }
 
     private func refreshCodexUsageLimits() async {
+        await MainActor.run {
+            if case .loading = codexUsageLimitState {
+                codexUsageLimitState = .loading
+            } else if case .unavailable = codexUsageLimitState {
+                codexUsageLimitState = .loading
+            }
+        }
+
         let limits = await CodexLocalProvider().fetchUsageLimits()
         await MainActor.run {
-            codexUsageLimits = limits
+            if let limits {
+                codexUsageLimitState = .loaded(limits)
+            } else {
+                codexUsageLimitState = .unavailable
+            }
         }
     }
 }
 
 private struct CodexRemainingUsageCard: View {
-    let summary: CodexUsageLimitSummary
-
-    private var limits: [CodexUsageLimit] {
-        [summary.primary, summary.secondary].compactMap(\.self)
-    }
+    let state: CodexUsageLimitViewState
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                Image(systemName: "gauge.with.dots.needle.33percent")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Color.accentColor)
-                    .frame(width: 26, height: 26)
-                    .background(Circle().fill(Color.accentColor.opacity(0.15)))
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Codex 剩余用量")
-                        .font(.headline.weight(.semibold))
-                    Text(summary.limitName ?? "本地 Codex rate limit")
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.secondary)
+            switch state {
+            case .loading:
+                CodexRemainingUsageHeader(
+                    title: "Codex 剩余用量",
+                    subtitle: "读取本地 Codex 快照中",
+                    trailingText: "加载中"
+                )
+                CodexRemainingUsageSkeleton()
+            case .loaded(let summary):
+                CodexRemainingUsageHeader(
+                    title: "Codex 剩余用量",
+                    subtitle: summary.limitName ?? "本地 Codex rate limit",
+                    trailingText: "最近 \(Formatters.relative(summary.observedAt))"
+                )
+                VStack(spacing: 8) {
+                    ForEach(Array(limits(for: summary).enumerated()), id: \.offset) { _, limit in
+                        CodexRemainingUsageRow(limit: limit)
+                    }
                 }
-
-                Spacer()
-
-                Text("最近 \(Formatters.relative(summary.observedAt))")
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.secondary)
-            }
-
-            VStack(spacing: 8) {
-                ForEach(Array(limits.enumerated()), id: \.offset) { _, limit in
-                    CodexRemainingUsageRow(limit: limit)
-                }
+            case .unavailable:
+                CodexRemainingUsageHeader(
+                    title: "Codex 剩余用量",
+                    subtitle: "等待 Codex 写入 rate limit 快照",
+                    trailingText: "暂无数据"
+                )
+                CodexRemainingUsageUnavailable()
             }
         }
         .padding(16)
@@ -167,6 +173,93 @@ private struct CodexRemainingUsageCard: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(Color.primary.opacity(0.045))
         )
+    }
+
+    private func limits(for summary: CodexUsageLimitSummary) -> [CodexUsageLimit] {
+        [summary.primary, summary.secondary].compactMap(\.self)
+    }
+}
+
+private enum CodexUsageLimitViewState: Equatable {
+    case loading
+    case loaded(CodexUsageLimitSummary)
+    case unavailable
+}
+
+private struct CodexRemainingUsageHeader: View {
+    let title: String
+    let subtitle: String
+    let trailingText: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "gauge.with.dots.needle.33percent")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 26, height: 26)
+                .background(Circle().fill(Color.accentColor.opacity(0.15)))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.headline.weight(.semibold))
+                Text(subtitle)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Text(trailingText)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
+private struct CodexRemainingUsageSkeleton: View {
+    var body: some View {
+        VStack(spacing: 8) {
+            CodexRemainingUsageSkeletonRow(titleWidth: 52, barOpacity: 0.18)
+            CodexRemainingUsageSkeletonRow(titleWidth: 34, barOpacity: 0.13)
+        }
+        .redacted(reason: .placeholder)
+    }
+}
+
+private struct CodexRemainingUsageSkeletonRow: View {
+    let titleWidth: CGFloat
+    let barOpacity: Double
+
+    var body: some View {
+        HStack(spacing: 12) {
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(Color.primary.opacity(0.18))
+                .frame(width: titleWidth, height: 18)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(Color.accentColor.opacity(barOpacity))
+                .frame(height: 8)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(Color.primary.opacity(0.16))
+                .frame(width: 48, height: 18)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(Color.primary.opacity(0.12))
+                .frame(width: 64, height: 18)
+        }
+    }
+}
+
+private struct CodexRemainingUsageUnavailable: View {
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "clock.badge.questionmark")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.secondary)
+            Text("运行一次 Codex 后，余额快照会随 session 日志自动出现。")
+                .font(.callout.weight(.medium))
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 0)
+        }
+        .frame(minHeight: 48, alignment: .leading)
     }
 }
 

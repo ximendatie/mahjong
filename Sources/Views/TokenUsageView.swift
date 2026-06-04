@@ -4,6 +4,7 @@ import AppKit
 struct TokenUsageView: View {
     @ObservedObject var taskStore: AgentTaskStore
     @State private var selectedRange = TokenUsageTimeRange.all
+    @State private var codexUsageLimits: CodexUsageLimitSummary?
 
     private var summaries: [TokenUsageSummary] {
         taskStore.tokenUsageSummaries(for: selectedRange)
@@ -48,28 +49,35 @@ struct TokenUsageView: View {
                     title: "隐私模式已开启",
                     message: "Token 统计在隐私模式下隐藏。"
                 )
-            } else if summaries.isEmpty {
-                TokenUsageEmptyState(
-                    systemImage: "chart.bar.xaxis",
-                    title: "暂无 token 记录",
-                    message: "当前时间范围内还没有可统计的本地记录。"
-                )
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
-                        TokenUsageOverview(
-                            summaries: summaries,
-                            totalTokens: totalTokens,
-                            totalRecords: totalRecords
-                        )
-                        TokenUsageDistributionBar(
-                            summaries: summaries,
-                            totalTokens: totalTokens
-                        )
-                        SessionTokenTreemapView(
-                            tasks: sessionTasks,
-                            totalTokens: totalTokens
-                        )
+                        if let codexUsageLimits {
+                            CodexRemainingUsageCard(summary: codexUsageLimits)
+                        }
+
+                        if summaries.isEmpty {
+                            TokenUsageEmptyState(
+                                systemImage: "chart.bar.xaxis",
+                                title: "暂无 token 记录",
+                                message: "当前时间范围内还没有可统计的本地记录。"
+                            )
+                            .frame(minHeight: 320)
+                        } else {
+                            TokenUsageOverview(
+                                summaries: summaries,
+                                totalTokens: totalTokens,
+                                totalRecords: totalRecords
+                            )
+                            TokenUsageDistributionBar(
+                                summaries: summaries,
+                                totalTokens: totalTokens
+                            )
+                            SessionTokenTreemapView(
+                                tasks: sessionTasks,
+                                totalTokens: totalTokens
+                            )
+                        }
                     }
                     .padding(.bottom, 18)
                 }
@@ -77,6 +85,14 @@ struct TokenUsageView: View {
         }
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .task {
+            await refreshCodexUsageLimits()
+        }
+        .onChange(of: taskStore.tasks.map(\.updatedAt).max()) { _, _ in
+            Task {
+                await refreshCodexUsageLimits()
+            }
+        }
     }
 
     private var header: some View {
@@ -99,6 +115,121 @@ struct TokenUsageView: View {
             .pickerStyle(.segmented)
             .frame(width: 280)
         }
+    }
+
+    private func refreshCodexUsageLimits() async {
+        let limits = await CodexLocalProvider().fetchUsageLimits()
+        await MainActor.run {
+            codexUsageLimits = limits
+        }
+    }
+}
+
+private struct CodexRemainingUsageCard: View {
+    let summary: CodexUsageLimitSummary
+
+    private var limits: [CodexUsageLimit] {
+        [summary.primary, summary.secondary].compactMap(\.self)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                Image(systemName: "gauge.with.dots.needle.33percent")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Color.accentColor)
+                    .frame(width: 26, height: 26)
+                    .background(Circle().fill(Color.accentColor.opacity(0.15)))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Codex 剩余用量")
+                        .font(.headline.weight(.semibold))
+                    Text(summary.limitName ?? "本地 Codex rate limit")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Text("最近 \(Formatters.relative(summary.observedAt))")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(spacing: 8) {
+                ForEach(Array(limits.enumerated()), id: \.offset) { _, limit in
+                    CodexRemainingUsageRow(limit: limit)
+                }
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color.primary.opacity(0.045))
+        )
+    }
+}
+
+private struct CodexRemainingUsageRow: View {
+    let limit: CodexUsageLimit
+
+    private var progress: Double {
+        max(0, min(1, limit.remainingPercent / 100))
+    }
+
+    var body: some View {
+        Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 6) {
+            GridRow {
+                Text(windowTitle)
+                    .font(.callout.weight(.semibold))
+                    .frame(width: 64, alignment: .leading)
+                ProgressView(value: progress)
+                    .progressViewStyle(.linear)
+                    .tint(Color.accentColor)
+                Text(percentText)
+                    .font(.callout.monospacedDigit().weight(.semibold))
+                    .frame(width: 54, alignment: .trailing)
+                Text(resetText)
+                    .font(.callout.monospacedDigit().weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 74, alignment: .trailing)
+            }
+        }
+    }
+
+    private var windowTitle: String {
+        if limit.windowMinutes % 10_080 == 0 {
+            let weeks = limit.windowMinutes / 10_080
+            return weeks == 1 ? "1周" : "\(weeks)周"
+        }
+
+        if limit.windowMinutes % 1_440 == 0 {
+            return "\(limit.windowMinutes / 1_440)天"
+        }
+
+        if limit.windowMinutes % 60 == 0 {
+            return "\(limit.windowMinutes / 60) 小时"
+        }
+
+        return "\(limit.windowMinutes) 分钟"
+    }
+
+    private var percentText: String {
+        String(format: "%.0f%%", limit.remainingPercent)
+    }
+
+    private var resetText: String {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(limit.resetsAt) {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "HH:mm"
+            return formatter.string(from: limit.resetsAt)
+        }
+
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "M月d日"
+        return formatter.string(from: limit.resetsAt)
     }
 }
 

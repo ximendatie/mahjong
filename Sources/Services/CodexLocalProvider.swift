@@ -18,6 +18,12 @@ struct CodexLocalProvider: AgentTaskProvider {
         }.value
     }
 
+    func fetchUsageLimits() async -> CodexUsageLimitSummary? {
+        await Task.detached(priority: .utility) {
+            readUsageLimits()
+        }.value
+    }
+
     private func readTasks() -> [AgentTask] {
         let indexURL = codexDirectory.appendingPathComponent("session_index.jsonl")
         let sessionsDirectory = codexDirectory.appendingPathComponent("sessions", isDirectory: true)
@@ -175,6 +181,74 @@ struct CodexLocalProvider: AgentTaskProvider {
         return metadata
     }
 
+    private func readUsageLimits() -> CodexUsageLimitSummary? {
+        let sessionsDirectory = codexDirectory.appendingPathComponent("sessions", isDirectory: true)
+        let archivedSessionsDirectory = codexDirectory.appendingPathComponent("archived_sessions", isDirectory: true)
+        let sessionFiles = findJSONLFiles(in: sessionsDirectory) + findJSONLFiles(in: archivedSessionsDirectory)
+        var latestSummary: CodexUsageLimitSummary?
+
+        for fileURL in sessionFiles {
+            guard let content = try? String(contentsOf: fileURL, encoding: .utf8) else {
+                continue
+            }
+
+            for line in content.split(separator: "\n") {
+                guard
+                    let data = String(line).data(using: .utf8),
+                    let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                    let payload = object["payload"] as? [String: Any],
+                    let rateLimits = payload["rate_limits"] as? [String: Any],
+                    let summary = codexUsageLimitSummary(from: rateLimits, timestamp: parseDate(object["timestamp"] as? String))
+                else {
+                    continue
+                }
+
+                if latestSummary == nil || summary.observedAt > latestSummary!.observedAt {
+                    latestSummary = summary
+                }
+            }
+        }
+
+        return latestSummary
+    }
+
+    private func codexUsageLimitSummary(
+        from rateLimits: [String: Any],
+        timestamp: Date?
+    ) -> CodexUsageLimitSummary? {
+        guard
+            let primaryObject = rateLimits["primary"] as? [String: Any],
+            let primary = codexUsageLimit(from: primaryObject)
+        else {
+            return nil
+        }
+
+        let secondary = (rateLimits["secondary"] as? [String: Any]).flatMap(codexUsageLimit)
+
+        return CodexUsageLimitSummary(
+            limitName: rateLimits["limit_name"] as? String,
+            primary: primary,
+            secondary: secondary,
+            observedAt: timestamp ?? Date.distantPast
+        )
+    }
+
+    private func codexUsageLimit(from object: [String: Any]) -> CodexUsageLimit? {
+        guard
+            let usedPercent = doubleValue(object["used_percent"]),
+            let windowMinutes = intValue(object["window_minutes"]),
+            let resetSeconds = doubleValue(object["resets_at"])
+        else {
+            return nil
+        }
+
+        return CodexUsageLimit(
+            usedPercent: usedPercent,
+            windowMinutes: windowMinutes,
+            resetsAt: Date(timeIntervalSince1970: resetSeconds)
+        )
+    }
+
     private func findJSONLFiles(in directory: URL) -> [URL] {
         guard let enumerator = FileManager.default.enumerator(
             at: directory,
@@ -288,6 +362,38 @@ struct CodexLocalProvider: AgentTaskProvider {
         }
 
         return "\(title.prefix(80))..."
+    }
+
+    private func intValue(_ value: Any?) -> Int? {
+        if let int = value as? Int {
+            return int
+        }
+
+        if let double = value as? Double {
+            return Int(double)
+        }
+
+        if let string = value as? String {
+            return Int(string)
+        }
+
+        return nil
+    }
+
+    private func doubleValue(_ value: Any?) -> Double? {
+        if let double = value as? Double {
+            return double
+        }
+
+        if let int = value as? Int {
+            return Double(int)
+        }
+
+        if let string = value as? String {
+            return Double(string)
+        }
+
+        return nil
     }
 }
 

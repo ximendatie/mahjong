@@ -148,4 +148,32 @@ final class CodexLocalProviderTests: XCTestCase {
         XCTAssertEqual(task.title, "Run a long task")
         XCTAssertEqual(task.status, .interrupted)
     }
+
+    func testFetchUsageLimitsReadsLatestCodexRateLimits() async throws {
+        let sessionID = "55555555-6666-7777-8888-999999999999"
+        let sessionsDirectory = temporaryHome
+            .appendingPathComponent(".codex", isDirectory: true)
+            .appendingPathComponent("sessions", isDirectory: true)
+            .appendingPathComponent("2026", isDirectory: true)
+        try FileManager.default.createDirectory(at: sessionsDirectory, withIntermediateDirectories: true)
+
+        let session = """
+        {"timestamp":"2026-06-04T09:00:00Z","type":"event_msg","payload":{"type":"token_count","rate_limits":{"limit_name":"GPT-5 Codex","primary":{"used_percent":10.0,"window_minutes":300,"resets_at":1780569000},"secondary":{"used_percent":25,"window_minutes":10080,"resets_at":1781155800}}}}
+        {"timestamp":"2026-06-04T10:00:00Z","type":"event_msg","payload":{"type":"token_count","rate_limits":{"limit_name":"GPT-5 Codex","primary":{"used_percent":2.0,"window_minutes":300,"resets_at":1780570000},"secondary":{"used_percent":8,"window_minutes":10080,"resets_at":1781156800}}}}
+        """
+        let sessionURL = sessionsDirectory.appendingPathComponent("rollout-\(sessionID).jsonl")
+        try session.write(to: sessionURL, atomically: true, encoding: .utf8)
+
+        let fetchedSummary = await CodexLocalProvider(homeDirectory: temporaryHome).fetchUsageLimits()
+        let summary = try XCTUnwrap(fetchedSummary)
+
+        XCTAssertEqual(summary.limitName, "GPT-5 Codex")
+        XCTAssertEqual(summary.primary.usedPercent, 2.0)
+        XCTAssertEqual(summary.primary.remainingPercent, 98.0)
+        XCTAssertEqual(summary.primary.windowMinutes, 300)
+        XCTAssertEqual(summary.primary.resetsAt.timeIntervalSince1970, 1780570000, accuracy: 0.1)
+        XCTAssertEqual(summary.secondary?.usedPercent, 8.0)
+        XCTAssertEqual(summary.secondary?.remainingPercent, 92.0)
+        XCTAssertEqual(summary.secondary?.windowMinutes, 10080)
+    }
 }

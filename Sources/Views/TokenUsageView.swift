@@ -5,6 +5,7 @@ struct TokenUsageView: View {
     @ObservedObject var taskStore: AgentTaskStore
     @State private var selectedRange = TokenUsageTimeRange.all
     @State private var codexUsageLimitState = CodexUsageLimitViewState.loading
+    @State private var isCodexUsageLimitRefreshing = false
 
     private var summaries: [TokenUsageSummary] {
         taskStore.tokenUsageSummaries(for: selectedRange)
@@ -52,7 +53,15 @@ struct TokenUsageView: View {
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
-                        CodexRemainingUsageCard(state: codexUsageLimitState)
+                        CodexRemainingUsageCard(
+                            state: codexUsageLimitState,
+                            isRefreshing: isCodexUsageLimitRefreshing,
+                            onRefresh: {
+                                Task {
+                                    await refreshCodexUsageLimits(showLoading: true)
+                                }
+                            }
+                        )
 
                         if summaries.isEmpty {
                             TokenUsageEmptyState(
@@ -84,11 +93,19 @@ struct TokenUsageView: View {
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .task {
-            await refreshCodexUsageLimits()
+            await refreshCodexUsageLimits(showLoading: true)
+
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(60))
+                guard !Task.isCancelled else {
+                    return
+                }
+                await refreshCodexUsageLimits(showLoading: false)
+            }
         }
         .onChange(of: taskStore.tasks.map(\.updatedAt).max()) { _, _ in
             Task {
-                await refreshCodexUsageLimits()
+                await refreshCodexUsageLimits(showLoading: false)
             }
         }
     }
@@ -115,14 +132,22 @@ struct TokenUsageView: View {
         }
     }
 
-    private func refreshCodexUsageLimits() async {
-        await MainActor.run {
-            if case .loading = codexUsageLimitState {
+    private func refreshCodexUsageLimits(showLoading: Bool) async {
+        let shouldRefresh = await MainActor.run {
+            guard !isCodexUsageLimitRefreshing else {
+                return false
+            }
+
+            isCodexUsageLimitRefreshing = true
+            if showLoading, case .unavailable = codexUsageLimitState {
                 codexUsageLimitState = .loading
-            } else if case .unavailable = codexUsageLimitState {
+            } else if showLoading, case .loading = codexUsageLimitState {
                 codexUsageLimitState = .loading
             }
+            return true
         }
+
+        guard shouldRefresh else { return }
 
         let limits = await CodexLocalProvider().fetchUsageLimits()
         await MainActor.run {
@@ -131,12 +156,15 @@ struct TokenUsageView: View {
             } else {
                 codexUsageLimitState = .unavailable
             }
+            isCodexUsageLimitRefreshing = false
         }
     }
 }
 
 private struct CodexRemainingUsageCard: View {
     let state: CodexUsageLimitViewState
+    let isRefreshing: Bool
+    let onRefresh: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -145,14 +173,18 @@ private struct CodexRemainingUsageCard: View {
                 CodexRemainingUsageHeader(
                     title: "Codex 剩余用量",
                     subtitle: "读取本地 Codex 快照中",
-                    trailingText: "加载中"
+                    trailingText: "加载中",
+                    isRefreshing: isRefreshing,
+                    onRefresh: onRefresh
                 )
                 CodexRemainingUsageSkeleton()
             case .loaded(let summary):
                 CodexRemainingUsageHeader(
                     title: "Codex 剩余用量",
                     subtitle: summary.limitName ?? "本地 Codex rate limit",
-                    trailingText: "最近 \(Formatters.relative(summary.observedAt))"
+                    trailingText: "最近 \(Formatters.relative(summary.observedAt))",
+                    isRefreshing: isRefreshing,
+                    onRefresh: onRefresh
                 )
                 VStack(spacing: 8) {
                     ForEach(Array(limits(for: summary).enumerated()), id: \.offset) { _, limit in
@@ -163,7 +195,9 @@ private struct CodexRemainingUsageCard: View {
                 CodexRemainingUsageHeader(
                     title: "Codex 剩余用量",
                     subtitle: "等待 Codex 写入 rate limit 快照",
-                    trailingText: "暂无数据"
+                    trailingText: "暂无数据",
+                    isRefreshing: isRefreshing,
+                    onRefresh: onRefresh
                 )
                 CodexRemainingUsageUnavailable()
             }
@@ -190,6 +224,8 @@ private struct CodexRemainingUsageHeader: View {
     let title: String
     let subtitle: String
     let trailingText: String
+    let isRefreshing: Bool
+    let onRefresh: () -> Void
 
     var body: some View {
         HStack(spacing: 10) {
@@ -209,9 +245,26 @@ private struct CodexRemainingUsageHeader: View {
 
             Spacer()
 
-            Text(trailingText)
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                Text(trailingText)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+
+                Button(action: onRefresh) {
+                    if isRefreshing {
+                        ProgressView()
+                            .controlSize(.small)
+                            .frame(width: 26, height: 26)
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 13, weight: .semibold))
+                            .frame(width: 26, height: 26)
+                    }
+                }
+                .buttonStyle(.borderless)
+                .disabled(isRefreshing)
+                .help("刷新 Codex 余额")
+            }
         }
     }
 }

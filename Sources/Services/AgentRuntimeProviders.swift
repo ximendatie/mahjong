@@ -122,8 +122,13 @@ struct DesktopAppRuntimeProvider: AgentRuntimeProvider {
 
             let needsTraeFallback = !runtimes.contains { $0.id == "desktop:trae" }
             let needsMiraFallback = !runtimes.contains { $0.id == "desktop:mira" }
-            if needsTraeFallback || needsMiraFallback {
+            let needsHermesFallback = !runtimes.contains { $0.id == "desktop:hermes" }
+            if needsHermesFallback || needsTraeFallback || needsMiraFallback {
                 let processLines = ProcessListReader.readProcessList().split(separator: "\n")
+                if needsHermesFallback, processLines.contains(where: ProcessListReader.isHermesDesktopProcess) {
+                    runtimes.append(Self.hermesRuntime(bundleIdentifier: AgentRuntimeIconBundle.hermes))
+                }
+
                 if needsTraeFallback, processLines.contains(where: ProcessListReader.isTraeCNDesktopProcess) {
                     runtimes.append(Self.traeCNRuntime(bundleIdentifier: AgentRuntimeIconBundle.traeCN))
                 }
@@ -192,17 +197,8 @@ struct DesktopAppRuntimeProvider: AgentRuntimeProvider {
                 bundleIdentifier: bundleIdentifier,
                 iconBundleIdentifier: AgentRuntimeIconBundle.openClaw
             )
-        case "com.nousresearch.hermes":
-            return AgentRuntime(
-                id: "desktop:hermes",
-                name: "Hermes Agent",
-                provider: "Hermes",
-                providerID: .desktopApps,
-                kind: .desktopApp,
-                summary: "已运行；任务卡从本地 Hermes state.db 读取",
-                bundleIdentifier: bundleIdentifier,
-                iconBundleIdentifier: AgentRuntimeIconBundle.hermes
-            )
+        case "com.nousresearch.hermes", "com.nousresearch.hermes.helper":
+            return hermesRuntime(bundleIdentifier: bundleIdentifier)
         case AgentRuntimeIconBundle.mira:
             return miraRuntime(bundleIdentifier: bundleIdentifier)
         case AgentRuntimeIconBundle.traeCN, "\(AgentRuntimeIconBundle.traeCN).helper":
@@ -236,6 +232,19 @@ struct DesktopAppRuntimeProvider: AgentRuntimeProvider {
             summary: "已运行；仅观测桌面端运行状态，不读取工程或会话内容",
             bundleIdentifier: bundleIdentifier,
             iconBundleIdentifier: AgentRuntimeIconBundle.mira
+        )
+    }
+
+    static func hermesRuntime(bundleIdentifier: String) -> AgentRuntime {
+        AgentRuntime(
+            id: "desktop:hermes",
+            name: "Hermes Agent",
+            provider: "Hermes",
+            providerID: .desktopApps,
+            kind: .desktopApp,
+            summary: "已运行；任务卡从本地 Hermes state.db 读取",
+            bundleIdentifier: bundleIdentifier,
+            iconBundleIdentifier: AgentRuntimeIconBundle.hermes
         )
     }
 }
@@ -361,5 +370,14 @@ enum ProcessListReader {
         }
 
         return args.contains("/Mira.app/Contents/MacOS/Mira")
+    }
+
+    static func isHermesDesktopProcess(_ line: Substring) -> Bool {
+        guard let args = arguments(from: line) else {
+            return false
+        }
+
+        return args.contains("/Hermes Agent.app/Contents/MacOS/")
+            || args.contains("com.nousresearch.hermes")
     }
 }

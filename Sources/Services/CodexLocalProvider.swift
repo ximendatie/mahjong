@@ -182,51 +182,45 @@ struct CodexLocalProvider: AgentTaskProvider {
     }
 
     private func readUsageLimits() -> [CodexUsageLimitSummary] {
+        // Only scan active sessions — archived sessions contain stale historical data
+        // that creates misleading duplicate limit groups in the UI.
         let sessionsDirectory = codexDirectory.appendingPathComponent("sessions", isDirectory: true)
-        let archivedSessionsDirectory = codexDirectory.appendingPathComponent("archived_sessions", isDirectory: true)
-        let sessionFiles = findJSONLFiles(in: sessionsDirectory) + findJSONLFiles(in: archivedSessionsDirectory)
-        let sortedSessionFiles = sessionFiles.sorted { lhs, rhs in
+        let sessionFiles = findJSONLFiles(in: sessionsDirectory).sorted { lhs, rhs in
             (fileModifiedAt(lhs) ?? .distantPast) > (fileModifiedAt(rhs) ?? .distantPast)
         }
 
-        let groups = readUsageLimitGroups(from: Array(sortedSessionFiles.prefix(24)))
-        if !groups.isEmpty {
-            return groups
-        }
-        return readUsageLimitGroups(from: sortedSessionFiles)
+        // Try recent files first (covers most cases quickly)
+        let groups = readUsageLimitGroups(from: Array(sessionFiles.prefix(48)), maxAgeDays: 7)
+        if !groups.isEmpty { return groups }
+
+        // Fall back to all session files with the same recency filter
+        return readUsageLimitGroups(from: sessionFiles, maxAgeDays: 7)
     }
 
-    /// Reads all session files and returns one summary per distinct `limit_id`,
-    /// preferring the most-recent non-zero snapshot for each group.
-    private func readUsageLimitGroups(from sessionFiles: [URL]) -> [CodexUsageLimitSummary] {
-        // limitID → (latest, latestNonZero)
+    /// Returns one summary per distinct `limit_id`, using only the latest snapshot.
+    /// Entries whose most-recent data is older than `maxAgeDays` are excluded.
+    private func readUsageLimitGroups(from sessionFiles: [URL], maxAgeDays: Double) -> [CodexUsageLimitSummary] {
+        let cutoff = Date().addingTimeInterval(-maxAgeDays * 86400)
         var latestByID: [String: CodexUsageLimitSummary] = [:]
-        var latestNonZeroByID: [String: CodexUsageLimitSummary] = [:]
 
         for fileURL in sessionFiles {
+            // Skip files older than the cutoff — no useful data inside
+            guard let modDate = fileModifiedAt(fileURL), modDate >= cutoff else { continue }
+
             let snapshots = readUsageLimitSnapshots(from: fileURL)
             for (limitID, snapshot) in snapshots {
-                if let s = snapshot.latest {
-                    if latestByID[limitID] == nil || s.observedAt > latestByID[limitID]!.observedAt {
-                        latestByID[limitID] = s
-                    }
-                }
-                if let s = snapshot.latestNonZero {
-                    if latestNonZeroByID[limitID] == nil || s.observedAt > latestNonZeroByID[limitID]!.observedAt {
-                        latestNonZeroByID[limitID] = s
-                    }
+                guard let s = snapshot.latest else { continue }
+                if latestByID[limitID] == nil || s.observedAt > latestByID[limitID]!.observedAt {
+                    latestByID[limitID] = s
                 }
             }
         }
 
-        // Merge: prefer non-zero, fall back to latest
-        let allIDs = Set(latestByID.keys).union(latestNonZeroByID.keys)
-        let summaries = allIDs.compactMap { id -> CodexUsageLimitSummary? in
-            latestNonZeroByID[id] ?? latestByID[id]
-        }
+        // Drop any entry whose most-recent snapshot is too old
+        let fresh = latestByID.values.filter { $0.observedAt >= cutoff }
 
-        // Sort: named limits first (alphabetically by name), unnamed last
-        return summaries.sorted { lhs, rhs in
+        // Sort: named limits first (by name), unnamed last
+        return fresh.sorted { lhs, rhs in
             switch (lhs.limitName, rhs.limitName) {
             case (let a?, let b?): return a < b
             case (nil, _): return false

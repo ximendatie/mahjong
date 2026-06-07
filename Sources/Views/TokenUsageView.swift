@@ -129,13 +129,13 @@ struct TokenUsageView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .top, spacing: 18) {
-            VStack(alignment: .leading, spacing: 6) {
+        HStack(alignment: .center, spacing: 18) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text("Agent Token 统计")
-                    .font(.title2.weight(.semibold))
+                    .font(.title3.weight(.semibold))
                 Text(headerSummary)
-                    .font(.callout.weight(.medium))
-                    .foregroundStyle(.secondary)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.tertiary)
             }
 
             Spacer()
@@ -146,7 +146,7 @@ struct TokenUsageView: View {
                 }
             }
             .pickerStyle(.segmented)
-            .frame(width: 280)
+            .frame(width: 260)
         }
     }
 
@@ -283,10 +283,8 @@ private struct CodexRemainingUsageCard: View {
             }
         }
         .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.primary.opacity(0.045))
-        )
+        .background(Color(nsColor: .controlBackgroundColor).opacity(0.7), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.primary.opacity(0.09), lineWidth: 0.5))
     }
 }
 
@@ -298,12 +296,18 @@ private struct CodexRemainingUsageGroup: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 7) {
             if let name = summary.limitName {
-                Text("\(name) 限额")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .padding(.bottom, 2)
+                HStack(spacing: 8) {
+                    Text(name)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                        .textCase(.uppercase)
+                        .tracking(0.3)
+                    Rectangle()
+                        .fill(Color.primary.opacity(0.08))
+                        .frame(height: 0.5)
+                }
             }
             ForEach(Array(limits.enumerated()), id: \.offset) { _, limit in
                 CodexRemainingUsageRow(limit: limit)
@@ -421,23 +425,35 @@ private struct CodexRemainingUsageRow: View {
         max(0, min(1, limit.remainingPercent / 100))
     }
 
+    private var barColor: Color {
+        if limit.remainingPercent > 50 { return .green }
+        if limit.remainingPercent > 20 { return .yellow }
+        return .red
+    }
+
     var body: some View {
-        Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 6) {
-            GridRow {
-                Text(windowTitle)
-                    .font(.callout.weight(.semibold))
-                    .frame(width: 64, alignment: .leading)
-                ProgressView(value: progress)
-                    .progressViewStyle(.linear)
-                    .tint(Color.accentColor)
-                Text(percentText)
-                    .font(.callout.monospacedDigit().weight(.semibold))
-                    .frame(width: 54, alignment: .trailing)
-                Text(resetText)
-                    .font(.callout.monospacedDigit().weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 74, alignment: .trailing)
+        HStack(spacing: 10) {
+            Text(windowTitle)
+                .font(.callout.weight(.semibold))
+                .frame(width: 58, alignment: .leading)
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                        .fill(Color.primary.opacity(0.1))
+                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                        .fill(barColor)
+                        .frame(width: max(4, geo.size.width * progress))
+                }
             }
+            .frame(height: 4)
+            Text(percentText)
+                .font(.callout.monospacedDigit().weight(.semibold))
+                .foregroundStyle(barColor)
+                .frame(width: 46, alignment: .trailing)
+            Text(resetText)
+                .font(.caption.monospacedDigit().weight(.medium))
+                .foregroundStyle(.secondary)
+                .frame(width: 70, alignment: .trailing)
         }
     }
 
@@ -526,50 +542,25 @@ private struct TokenUsageMetricTile: View {
     var symbolText: String?
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            if systemImage != nil || symbolText != nil {
-                metricSymbol
-            }
-
-            VStack(alignment: .leading, spacing: 5) {
-                Text(title)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Text(value)
-                    .font(.title3.weight(.semibold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.72)
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-            Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.tertiary)
+                .textCase(.uppercase)
+                .tracking(0.3)
+            Text(value)
+                .font(.title3.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+            Text(subtitle)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
         }
         .padding(14)
-        .frame(maxWidth: .infinity, minHeight: 96, alignment: .topLeading)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.primary.opacity(0.06))
-        )
-    }
-
-    @ViewBuilder
-    private var metricSymbol: some View {
-        if let symbolText {
-            Text(symbolText)
-                .font(.system(size: 16, weight: .bold, design: .rounded))
-                .foregroundStyle(Color.accentColor)
-                .frame(width: 28, height: 28)
-                .background(Circle().fill(Color.accentColor.opacity(0.15)))
-        } else if let systemImage {
-            Image(systemName: systemImage)
-                .font(.system(size: 15, weight: .semibold))
-                .symbolRenderingMode(.monochrome)
-                .foregroundStyle(Color.accentColor)
-                .frame(width: 28, height: 28)
-                .background(Circle().fill(Color.accentColor.opacity(0.15)))
-        }
+        .frame(maxWidth: .infinity, minHeight: 88, alignment: .topLeading)
+        .background(Color(nsColor: .controlBackgroundColor).opacity(0.7), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.primary.opacity(0.09), lineWidth: 0.5))
     }
 }
 
@@ -593,22 +584,23 @@ private struct TokenUsageDistributionBar: View {
             }
 
             GeometryReader { proxy in
-                HStack(spacing: 3) {
+                HStack(spacing: 2) {
                     ForEach(Array(visibleSegments.enumerated()), id: \.element.id) { index, summary in
-                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
                             .fill(tokenUsageColor(index))
                             .frame(width: segmentWidth(for: summary, in: proxy.size.width))
                     }
                 }
             }
-            .frame(height: 18)
+            .frame(height: 12)
+            .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
 
-            HStack(spacing: 14) {
+            HStack(spacing: 16) {
                 ForEach(Array(visibleSegments.prefix(4).enumerated()), id: \.element.id) { index, summary in
-                    HStack(spacing: 6) {
-                        Rectangle()
+                    HStack(spacing: 5) {
+                        RoundedRectangle(cornerRadius: 2, style: .continuous)
                             .fill(tokenUsageColor(index))
-                            .frame(width: 10, height: 7)
+                            .frame(width: 8, height: 8)
                         Text(summary.agent)
                             .font(.caption)
                             .lineLimit(1)
@@ -621,10 +613,8 @@ private struct TokenUsageDistributionBar: View {
             }
         }
         .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.primary.opacity(0.045))
-        )
+        .background(Color(nsColor: .controlBackgroundColor).opacity(0.7), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.primary.opacity(0.09), lineWidth: 0.5))
     }
 
     private func segmentWidth(for summary: TokenUsageSummary, in availableWidth: CGFloat) -> CGFloat {
@@ -741,10 +731,8 @@ private struct SessionTokenTreemapView: View {
             .frame(minHeight: 420)
         }
         .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.primary.opacity(0.045))
-        )
+        .background(Color(nsColor: .controlBackgroundColor).opacity(0.7), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.primary.opacity(0.09), lineWidth: 0.5))
     }
 
     private func nodes(in size: CGSize) -> [SessionTokenTreemapNode] {
@@ -1174,6 +1162,10 @@ private struct ClaudeUsageLimitCard: View {
                     ClaudeUsageLimitRow(title: "本周", window: summary.weeklyWindow)
                 }
                 ClaudeUsageCacheBreakdown(summary: summary)
+                Text("仅统计本地 token 用量；配额百分比存于 Claude.ai 服务端，本地无法获取")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .padding(.top, 2)
             case .unavailable:
                 ClaudeUsageLimitHeader(
                     subtitle: "等待 Claude 会话数据",
@@ -1185,10 +1177,8 @@ private struct ClaudeUsageLimitCard: View {
             }
         }
         .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.primary.opacity(0.045))
-        )
+        .background(Color(nsColor: .controlBackgroundColor).opacity(0.7), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.primary.opacity(0.09), lineWidth: 0.5))
     }
 
     private func tierSubtitle(_ tier: String?) -> String {
@@ -1273,19 +1263,25 @@ private struct ClaudeUsageLimitRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 10) {
             Text(title)
                 .font(.callout.weight(.semibold))
-                .frame(width: 64, alignment: .leading)
-
+                .frame(width: 58, alignment: .leading)
             Text(Formatters.tokens(window.tokens))
                 .font(.callout.monospacedDigit().weight(.bold))
-
-            Spacer(minLength: 8)
-
-            Text(resetText)
-                .font(.callout.monospacedDigit().weight(.medium))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.primary)
+            Spacer(minLength: 4)
+            HStack(spacing: 4) {
+                Text("\(window.turns) 次")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.tertiary)
+                Text("·")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                Text(resetText)
+                    .font(.caption.monospacedDigit().weight(.medium))
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 }
@@ -1297,28 +1293,26 @@ private struct ClaudeUsageCacheBreakdown: View {
     private let claudeColor = Color.orange
 
     var body: some View {
-        HStack(spacing: 16) {
-            breakdownItem("输入", tokens: window.inputTokens, systemImage: "arrow.down.circle")
-            breakdownItem("输出", tokens: window.outputTokens, systemImage: "arrow.up.circle")
-            breakdownItem("缓存", tokens: window.cacheTokens, systemImage: "internaldrive")
+        HStack(spacing: 14) {
+            breakdownItem("输入", tokens: window.inputTokens)
+            breakdownItem("输出", tokens: window.outputTokens)
+            breakdownItem("缓存", tokens: window.cacheTokens)
             Spacer(minLength: 0)
-            Text("\(window.turns) 次 API 调用")
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.secondary)
         }
-        .padding(.top, 2)
+        .padding(.top, 4)
+        .padding(.bottom, 2)
     }
 
-    private func breakdownItem(_ label: String, tokens: Int, systemImage: String) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: systemImage)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(claudeColor.opacity(0.7))
+    private func breakdownItem(_ label: String, tokens: Int) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
             Text(label)
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.secondary)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.tertiary)
+                .textCase(.uppercase)
+                .tracking(0.3)
             Text(Formatters.tokens(tokens))
                 .font(.caption.monospacedDigit().weight(.semibold))
+                .foregroundStyle(.secondary)
         }
     }
 }

@@ -146,7 +146,10 @@ struct BoardView: View {
         case .sessions:
             columns
         case .agents:
-            AgentRuntimeListView(runtimes: taskStore.runtimes)
+            AgentRuntimeListView(
+                runtimes: taskStore.runtimes,
+                tokensByProvider: taskStore.runtimeTokenTotals()
+            )
         case .tokenUsage:
             TokenUsageView(taskStore: taskStore)
         case .futureTasks:

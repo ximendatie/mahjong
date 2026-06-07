@@ -30,3 +30,19 @@ struct ClaudeUsageWindow: Equatable, Sendable {
     var outputTokens: Int
     var cacheTokens: Int
 }
+
+// MARK: - Estimated usage budget (configurable)
+
+/// Claude does not write rate-limit data locally — only token counts. To show a
+/// percentage like Claude.ai's "42% used", we estimate against a configurable token
+/// ceiling. Defaults are calibrated so a typical Pro-plan session matches the app's
+/// reading; users can override both values in Settings.
+enum ClaudeUsageBudget {
+    static let sessionKey = "claudeSessionTokenLimit"
+    static let weeklyKey = "claudeWeeklyTokenLimit"
+
+    /// ~32M tokens ≈ 42% of a Pro 5-hour session (reverse-engineered from Claude.ai).
+    static let defaultSession = 76_700_000
+    /// ~32M tokens ≈ 5% of a Pro weekly all-models limit.
+    static let defaultWeekly = 644_000_000
+}

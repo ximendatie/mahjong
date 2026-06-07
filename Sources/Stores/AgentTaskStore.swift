@@ -168,6 +168,17 @@ final class AgentTaskStore: ObservableObject {
         }
     }
 
+    /// Cumulative tokens per agent display-name (lowercased), used to annotate
+    /// running runtimes in the "运行 Agent" view. Empty in privacy mode.
+    func runtimeTokenTotals() -> [String: Int] {
+        guard !isPrivacyModeEnabled else { return [:] }
+        var totals: [String: Int] = [:]
+        for summary in tokenUsageSummaries(for: .all) {
+            totals[summary.agent.lowercased()] = summary.totalTokens
+        }
+        return totals
+    }
+
     func sortedFutureTasks() -> [FutureTaskItem] {
         futureTasks
             .sorted { lhs, rhs in

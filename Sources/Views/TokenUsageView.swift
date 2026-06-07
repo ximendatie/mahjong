@@ -9,6 +9,8 @@ struct TokenUsageView: View {
     @State private var claudeUsageSummary: ClaudeTokenUsageSummary? = nil
     @State private var claudeUsageLimitState = ClaudeUsageLimitViewState.loading
     @State private var isClaudeUsageLimitRefreshing = false
+    @AppStorage(ClaudeUsageBudget.sessionKey) private var claudeSessionTokenLimit = ClaudeUsageBudget.defaultSession
+    @AppStorage(ClaudeUsageBudget.weeklyKey) private var claudeWeeklyTokenLimit = ClaudeUsageBudget.defaultWeekly
 
     private var summaries: [TokenUsageSummary] {
         taskStore.tokenUsageSummaries(for: selectedRange)
@@ -68,6 +70,8 @@ struct TokenUsageView: View {
 
                         ClaudeUsageLimitCard(
                             state: claudeUsageLimitState,
+                            sessionTokenLimit: claudeSessionTokenLimit,
+                            weeklyTokenLimit: claudeWeeklyTokenLimit,
                             isRefreshing: isClaudeUsageLimitRefreshing,
                             onRefresh: {
                                 Task {
@@ -260,7 +264,7 @@ private struct CodexRemainingUsageCard: View {
                 let latestAt = summaries.map(\.observedAt).max() ?? Date.distantPast
                 CodexRemainingUsageHeader(
                     title: "Codex 剩余用量",
-                    subtitle: summaries.compactMap(\.limitName).joined(separator: " · "),
+                    subtitle: summaries.map { $0.limitName ?? "通用限额" }.joined(separator: " · "),
                     trailingText: "最近 \(Formatters.relative(latestAt))",
                     isRefreshing: isRefreshing,
                     onRefresh: onRefresh
@@ -295,24 +299,46 @@ private struct CodexRemainingUsageGroup: View {
         [summary.primary, summary.secondary].compactMap { $0 }
     }
 
+    private var isStale: Bool {
+        Date().timeIntervalSince(summary.observedAt) > 36 * 3600
+    }
+
+    private var groupName: String {
+        summary.limitName ?? "通用限额"
+    }
+
+    private var snapshotDate: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "M月d日"
+        return formatter.string(from: summary.observedAt)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
-            if let name = summary.limitName {
-                HStack(spacing: 8) {
-                    Text(name)
-                        .font(.caption.weight(.semibold))
+            HStack(spacing: 8) {
+                Text(groupName)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(isStale ? .tertiary : .secondary)
+                    .textCase(.uppercase)
+                    .tracking(0.3)
+                if isStale {
+                    Text("历史快照 · \(snapshotDate)")
+                        .font(.caption2.weight(.medium))
                         .foregroundStyle(.tertiary)
-                        .textCase(.uppercase)
-                        .tracking(0.3)
-                    Rectangle()
-                        .fill(Color.primary.opacity(0.08))
-                        .frame(height: 0.5)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(Color.primary.opacity(0.06)))
                 }
+                Rectangle()
+                    .fill(Color.primary.opacity(0.08))
+                    .frame(height: 0.5)
             }
             ForEach(Array(limits.enumerated()), id: \.offset) { _, limit in
-                CodexRemainingUsageRow(limit: limit)
+                CodexRemainingUsageRow(limit: limit, isStale: isStale)
             }
         }
+        .opacity(isStale ? 0.66 : 1)
     }
 }
 
@@ -420,12 +446,14 @@ private struct CodexRemainingUsageUnavailable: View {
 
 private struct CodexRemainingUsageRow: View {
     let limit: CodexUsageLimit
+    var isStale: Bool = false
 
     private var progress: Double {
         max(0, min(1, limit.remainingPercent / 100))
     }
 
     private var barColor: Color {
+        if isStale { return .secondary }
         if limit.remainingPercent > 50 { return .green }
         if limit.remainingPercent > 20 { return .yellow }
         return .red
@@ -450,7 +478,7 @@ private struct CodexRemainingUsageRow: View {
                 .font(.callout.monospacedDigit().weight(.semibold))
                 .foregroundStyle(barColor)
                 .frame(width: 46, alignment: .trailing)
-            Text(resetText)
+            Text(isStale ? "已过期" : resetText)
                 .font(.caption.monospacedDigit().weight(.medium))
                 .foregroundStyle(.secondary)
                 .frame(width: 70, alignment: .trailing)
@@ -1136,6 +1164,8 @@ private enum ClaudeUsageLimitViewState: Equatable {
 
 private struct ClaudeUsageLimitCard: View {
     let state: ClaudeUsageLimitViewState
+    let sessionTokenLimit: Int
+    let weeklyTokenLimit: Int
     let isRefreshing: Bool
     let onRefresh: () -> Void
 
@@ -1158,11 +1188,11 @@ private struct ClaudeUsageLimitCard: View {
                     onRefresh: onRefresh
                 )
                 VStack(spacing: 8) {
-                    ClaudeUsageLimitRow(title: "本次会话", window: summary.sessionWindow)
-                    ClaudeUsageLimitRow(title: "本周", window: summary.weeklyWindow)
+                    ClaudeUsageLimitRow(title: "本次会话", window: summary.sessionWindow, tokenLimit: sessionTokenLimit)
+                    ClaudeUsageLimitRow(title: "本周", window: summary.weeklyWindow, tokenLimit: weeklyTokenLimit)
                 }
                 ClaudeUsageCacheBreakdown(summary: summary)
-                Text("仅统计本地 token 用量；配额百分比存于 Claude.ai 服务端，本地无法获取")
+                Text("百分比为估算值 — Claude 不在本地写入配额，按预设额度反推（可在设置调整）")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
                     .padding(.top, 2)
@@ -1243,6 +1273,23 @@ private struct ClaudeUsageLimitHeader: View {
 private struct ClaudeUsageLimitRow: View {
     let title: String
     let window: ClaudeUsageWindow
+    let tokenLimit: Int
+
+    private var usedFraction: Double {
+        guard tokenLimit > 0 else { return 0 }
+        return max(0, min(1, Double(window.tokens) / Double(tokenLimit)))
+    }
+
+    private var usedPercent: Int {
+        Int((usedFraction * 100).rounded())
+    }
+
+    private var barColor: Color {
+        let p = usedFraction * 100
+        if p < 60 { return .green }
+        if p < 85 { return .yellow }
+        return .red
+    }
 
     private var resetText: String {
         let calendar = Calendar.current
@@ -1258,30 +1305,43 @@ private struct ClaudeUsageLimitRow: View {
         }
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "M月d日 EEE"
-        return "\(formatter.string(from: window.resetsAt)) 重置"
+        formatter.dateFormat = "M月d日 重置"
+        return formatter.string(from: window.resetsAt)
     }
 
     var body: some View {
-        HStack(spacing: 10) {
-            Text(title)
-                .font(.callout.weight(.semibold))
-                .frame(width: 58, alignment: .leading)
-            Text(Formatters.tokens(window.tokens))
-                .font(.callout.monospacedDigit().weight(.bold))
-                .foregroundStyle(.primary)
-            Spacer(minLength: 4)
-            HStack(spacing: 4) {
-                Text("\(window.turns) 次")
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.tertiary)
-                Text("·")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.callout.weight(.semibold))
                 Text(resetText)
-                    .font(.caption.monospacedDigit().weight(.medium))
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .frame(width: 100, alignment: .leading)
+
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                        .fill(Color.primary.opacity(0.1))
+                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                        .fill(barColor)
+                        .frame(width: max(4, geo.size.width * usedFraction))
+                }
+            }
+            .frame(height: 5)
+
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("≈\(usedPercent)%")
+                    .font(.callout.monospacedDigit().weight(.bold))
+                    .foregroundStyle(barColor)
+                Text(Formatters.tokens(window.tokens))
+                    .font(.caption2.monospacedDigit())
                     .foregroundStyle(.secondary)
             }
+            .frame(width: 62, alignment: .trailing)
         }
     }
 }

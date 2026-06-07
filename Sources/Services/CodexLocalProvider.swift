@@ -182,23 +182,20 @@ struct CodexLocalProvider: AgentTaskProvider {
     }
 
     private func readUsageLimits() -> [CodexUsageLimitSummary] {
-        // Only scan active sessions — archived sessions contain stale historical data
-        // that creates misleading duplicate limit groups in the UI.
         let sessionsDirectory = codexDirectory.appendingPathComponent("sessions", isDirectory: true)
         let sessionFiles = findJSONLFiles(in: sessionsDirectory).sorted { lhs, rhs in
             (fileModifiedAt(lhs) ?? .distantPast) > (fileModifiedAt(rhs) ?? .distantPast)
         }
 
-        // Try recent files first (covers most cases quickly)
-        let groups = readUsageLimitGroups(from: Array(sessionFiles.prefix(48)), maxAgeDays: 7)
-        if !groups.isEmpty { return groups }
-
-        // Fall back to all session files with the same recency filter
-        return readUsageLimitGroups(from: sessionFiles, maxAgeDays: 7)
+        // Keep the latest snapshot per limit_id within the last 45 days. Codex now
+        // only writes the active model's limit (codex_bengalfox) to recent sessions;
+        // older groups like the general "codex" limit surface as historical snapshots,
+        // and the view labels anything stale accordingly.
+        return readUsageLimitGroups(from: Array(sessionFiles.prefix(400)), maxAgeDays: 45)
     }
 
-    /// Returns one summary per distinct `limit_id`, using only the latest snapshot.
-    /// Entries whose most-recent data is older than `maxAgeDays` are excluded.
+    /// Returns one summary per distinct `limit_id`, keeping only the latest snapshot,
+    /// sorted with the freshest group first. Staleness is decided by the view.
     private func readUsageLimitGroups(from sessionFiles: [URL], maxAgeDays: Double) -> [CodexUsageLimitSummary] {
         let cutoff = Date().addingTimeInterval(-maxAgeDays * 86400)
         var latestByID: [String: CodexUsageLimitSummary] = [:]
@@ -216,17 +213,9 @@ struct CodexLocalProvider: AgentTaskProvider {
             }
         }
 
-        // Drop any entry whose most-recent snapshot is too old
-        let fresh = latestByID.values.filter { $0.observedAt >= cutoff }
-
-        // Sort: named limits first (by name), unnamed last
-        return fresh.sorted { lhs, rhs in
-            switch (lhs.limitName, rhs.limitName) {
-            case (let a?, let b?): return a < b
-            case (nil, _): return false
-            case (_, nil): return true
-            }
-        }
+        // Freshest group first; historical groups (e.g. the general "codex" limit)
+        // fall to the bottom and are visually marked as snapshots by the view.
+        return latestByID.values.sorted { $0.observedAt > $1.observedAt }
     }
 
     /// Returns a dict of limitID → snapshot for all distinct limit_ids in the file.

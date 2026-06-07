@@ -3,107 +3,155 @@ import SwiftUI
 
 struct AgentRuntimeListView: View {
     let runtimes: [AgentRuntime]
+    var tokensByProvider: [String: Int] = [:]
+
+    private var groups: [(kind: AgentRuntimeKind, runtimes: [AgentRuntime])] {
+        let order: [AgentRuntimeKind] = [.terminal, .desktopApp]
+        return order.compactMap { kind in
+            let items = runtimes
+                .filter { $0.kind == kind }
+                .sorted { $0.updatedAt > $1.updatedAt }
+            return items.isEmpty ? nil : (kind, items)
+        }
+    }
 
     var body: some View {
         ScrollView {
-            LazyVGrid(columns: columns, alignment: .leading, spacing: 12) {
-                ForEach(runtimes) { runtime in
-                    AgentRuntimeCardView(runtime: runtime)
-                        .onTapGesture(count: 2) {
-                            OpenTargetHandler.open(runtime)
-                        }
-                }
-
-                if runtimes.isEmpty {
-                    VStack(spacing: 8) {
-                        Image(systemName: "power")
-                            .font(.title3)
-                            .foregroundStyle(.secondary)
-                        Text("暂无运行中的 Agent")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+            if runtimes.isEmpty {
+                emptyState
+            } else {
+                VStack(alignment: .leading, spacing: 20) {
+                    ForEach(groups, id: \.kind) { group in
+                        section(for: group.kind, runtimes: group.runtimes)
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 72)
-                    .gridCellColumns(2)
                 }
+                .padding(18)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
             }
-            .padding(18)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
+    private func section(for kind: AgentRuntimeKind, runtimes: [AgentRuntime]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: kind == .terminal ? "terminal" : "macwindow")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                Text(kind.title)
+                    .font(.subheadline.weight(.semibold))
+                Text("\(runtimes.count)")
+                    .font(.caption.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(Color.primary.opacity(0.07)))
+                Rectangle()
+                    .fill(Color.primary.opacity(0.08))
+                    .frame(height: 0.5)
+            }
+
+            LazyVGrid(columns: columns, alignment: .leading, spacing: 12) {
+                ForEach(runtimes) { runtime in
+                    AgentRuntimeCardView(runtime: runtime, tokens: tokens(for: runtime))
+                        .onTapGesture(count: 2) {
+                            OpenTargetHandler.open(runtime)
+                        }
+                }
+            }
+        }
+    }
+
+    private func tokens(for runtime: AgentRuntime) -> Int? {
+        tokensByProvider[runtime.provider.lowercased()]
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "power")
+                .font(.title3)
+                .foregroundStyle(.secondary)
+            Text("暂无运行中的 Agent")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 96)
+    }
+
     private var columns: [GridItem] {
         [
-            GridItem(.flexible(minimum: 260), spacing: 12),
-            GridItem(.flexible(minimum: 260), spacing: 12)
+            GridItem(.adaptive(minimum: 260, maximum: 420), spacing: 12, alignment: .topLeading)
         ]
     }
 }
 
 struct AgentRuntimeCardView: View {
     let runtime: AgentRuntime
+    var tokens: Int?
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             ZStack {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
                     .fill(Color.primary.opacity(0.06))
                 AgentRuntimeIconView(runtime: runtime)
             }
-            .frame(width: 42, height: 42)
+            .frame(width: 40, height: 40)
 
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
                 VStack(alignment: .leading, spacing: 3) {
-                    HStack(alignment: .firstTextBaseline) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Text(runtime.name)
                             .font(.system(size: 14, weight: .semibold))
                             .lineLimit(1)
-                        Spacer()
-                        Text(runtime.kind.title)
+                        Spacer(minLength: 4)
+                        Circle()
+                            .fill(Color.green)
+                            .frame(width: 6, height: 6)
+                        Text("运行中")
                             .font(.caption2.weight(.medium))
                             .foregroundStyle(.secondary)
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 3)
-                            .background(Capsule().fill(Color.primary.opacity(0.07)))
                     }
 
                     Text(runtime.summary)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
-                VStack(spacing: 5) {
-                    metadataRow("Provider", runtime.provider)
-                    metadataRow("Processes", "\(runtime.processCount)")
-                    metadataRow("Updated", Formatters.relative(runtime.updatedAt))
+                HStack(spacing: 8) {
+                    if let tokens, tokens > 0 {
+                        metaChip(systemImage: "number", text: Formatters.tokens(tokens))
+                    }
+                    metaChip(systemImage: "clock", text: Formatters.relative(runtime.updatedAt))
+                    Spacer(minLength: 0)
                 }
             }
         }
         .padding(12)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.9))
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.7))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.09), lineWidth: 0.5)
         )
     }
 
-    private func metadataRow(_ label: String, _ value: String) -> some View {
-        HStack {
-            Text(label)
+    private func metaChip(systemImage: String, text: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: systemImage)
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(.tertiary)
+            Text(text)
+                .font(.caption2.monospacedDigit().weight(.medium))
                 .foregroundStyle(.secondary)
-            Spacer(minLength: 8)
-            Text(value)
-                .fontWeight(.medium)
                 .lineLimit(1)
-                .truncationMode(.middle)
         }
-        .font(.caption2)
     }
 }
 

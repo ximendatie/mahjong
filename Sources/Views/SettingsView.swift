@@ -29,10 +29,20 @@ struct SettingsView: View {
     private var controlsColumn: some View {
         VStack(alignment: .leading, spacing: 16) {
             generalSection
+            claudeBudgetSection
             versionSection
             providersSection
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
+    }
+
+    private var claudeBudgetSection: some View {
+        SettingsGroupBox(
+            title: "Claude 估算额度",
+            subtitle: "Claude 不在本地写入配额，Token 统计页的消耗百分比按这里的额度估算。"
+        ) {
+            ClaudeBudgetEditor()
+        }
     }
 
     private var generalSection: some View {
@@ -316,6 +326,81 @@ struct ProviderToggleRow: View {
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+        )
+    }
+}
+
+struct ClaudeBudgetEditor: View {
+    @AppStorage(ClaudeUsageBudget.sessionKey) private var sessionLimit = ClaudeUsageBudget.defaultSession
+    @AppStorage(ClaudeUsageBudget.weeklyKey) private var weeklyLimit = ClaudeUsageBudget.defaultWeekly
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            field(
+                title: "会话额度",
+                subtitle: "5 小时滚动窗口的 token 上限",
+                value: $sessionLimit
+            )
+            SettingsDivider()
+            field(
+                title: "每周额度",
+                subtitle: "7 天窗口的 token 上限",
+                value: $weeklyLimit
+            )
+
+            HStack(spacing: 8) {
+                Image(systemName: "wand.and.stars")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                Text("默认值由 Claude.ai 当前读数反推，仅供参考。")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                Spacer(minLength: 8)
+                Button("恢复默认") {
+                    sessionLimit = ClaudeUsageBudget.defaultSession
+                    weeklyLimit = ClaudeUsageBudget.defaultWeekly
+                }
+                .buttonStyle(.link)
+                .font(.caption)
+            }
+            .padding(.top, 8)
+        }
+    }
+
+    private func field(title: String, subtitle: String, value: Binding<Int>) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 16)
+
+            HStack(spacing: 5) {
+                TextField(
+                    "",
+                    value: millionsBinding(value),
+                    format: .number.precision(.fractionLength(0...1))
+                )
+                .textFieldStyle(.roundedBorder)
+                .multilineTextAlignment(.trailing)
+                .frame(width: 74)
+                Text("M tokens")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 10)
+        .frame(minHeight: 56)
+    }
+
+    private func millionsBinding(_ value: Binding<Int>) -> Binding<Double> {
+        Binding(
+            get: { Double(value.wrappedValue) / 1_000_000 },
+            set: { value.wrappedValue = max(1_000_000, Int(($0 * 1_000_000).rounded())) }
         )
     }
 }

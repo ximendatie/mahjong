@@ -18,7 +18,7 @@ struct CodexLocalProvider: AgentTaskProvider {
         }.value
     }
 
-    func fetchUsageLimits() async -> CodexUsageLimitSummary? {
+    func fetchUsageLimits() async -> [CodexUsageLimitSummary] {
         await Task.detached(priority: .utility) {
             readUsageLimits()
         }.value
@@ -181,7 +181,7 @@ struct CodexLocalProvider: AgentTaskProvider {
         return metadata
     }
 
-    private func readUsageLimits() -> CodexUsageLimitSummary? {
+    private func readUsageLimits() -> [CodexUsageLimitSummary] {
         let sessionsDirectory = codexDirectory.appendingPathComponent("sessions", isDirectory: true)
         let archivedSessionsDirectory = codexDirectory.appendingPathComponent("archived_sessions", isDirectory: true)
         let sessionFiles = findJSONLFiles(in: sessionsDirectory) + findJSONLFiles(in: archivedSessionsDirectory)
@@ -189,43 +189,60 @@ struct CodexLocalProvider: AgentTaskProvider {
             (fileModifiedAt(lhs) ?? .distantPast) > (fileModifiedAt(rhs) ?? .distantPast)
         }
 
-        if let recentSummary = readUsageLimits(from: Array(sortedSessionFiles.prefix(24))) {
-            return recentSummary
+        let groups = readUsageLimitGroups(from: Array(sortedSessionFiles.prefix(24)))
+        if !groups.isEmpty {
+            return groups
         }
-
-        return readUsageLimits(from: sortedSessionFiles)
+        return readUsageLimitGroups(from: sortedSessionFiles)
     }
 
-    private func readUsageLimits(from sessionFiles: [URL]) -> CodexUsageLimitSummary? {
-        var latestSummary: CodexUsageLimitSummary?
-        var latestNonZeroSummary: CodexUsageLimitSummary?
+    /// Reads all session files and returns one summary per distinct `limit_id`,
+    /// preferring the most-recent non-zero snapshot for each group.
+    private func readUsageLimitGroups(from sessionFiles: [URL]) -> [CodexUsageLimitSummary] {
+        // limitID → (latest, latestNonZero)
+        var latestByID: [String: CodexUsageLimitSummary] = [:]
+        var latestNonZeroByID: [String: CodexUsageLimitSummary] = [:]
 
         for fileURL in sessionFiles {
-            guard let snapshot = readUsageLimitSnapshot(from: fileURL) else {
-                continue
-            }
-
-            if let summary = snapshot.latest,
-               latestSummary == nil || summary.observedAt > latestSummary!.observedAt {
-                latestSummary = summary
-            }
-
-            if let summary = snapshot.latestNonZero,
-               latestNonZeroSummary == nil || summary.observedAt > latestNonZeroSummary!.observedAt {
-                latestNonZeroSummary = summary
+            let snapshots = readUsageLimitSnapshots(from: fileURL)
+            for (limitID, snapshot) in snapshots {
+                if let s = snapshot.latest {
+                    if latestByID[limitID] == nil || s.observedAt > latestByID[limitID]!.observedAt {
+                        latestByID[limitID] = s
+                    }
+                }
+                if let s = snapshot.latestNonZero {
+                    if latestNonZeroByID[limitID] == nil || s.observedAt > latestNonZeroByID[limitID]!.observedAt {
+                        latestNonZeroByID[limitID] = s
+                    }
+                }
             }
         }
 
-        return latestNonZeroSummary ?? latestSummary
+        // Merge: prefer non-zero, fall back to latest
+        let allIDs = Set(latestByID.keys).union(latestNonZeroByID.keys)
+        let summaries = allIDs.compactMap { id -> CodexUsageLimitSummary? in
+            latestNonZeroByID[id] ?? latestByID[id]
+        }
+
+        // Sort: named limits first (alphabetically by name), unnamed last
+        return summaries.sorted { lhs, rhs in
+            switch (lhs.limitName, rhs.limitName) {
+            case (let a?, let b?): return a < b
+            case (nil, _): return false
+            case (_, nil): return true
+            }
+        }
     }
 
-    private func readUsageLimitSnapshot(from fileURL: URL) -> CodexUsageLimitSnapshot? {
+    /// Returns a dict of limitID → snapshot for all distinct limit_ids in the file.
+    private func readUsageLimitSnapshots(from fileURL: URL) -> [String: CodexUsageLimitSnapshot] {
         guard let content = try? String(contentsOf: fileURL, encoding: .utf8) else {
-            return nil
+            return [:]
         }
 
-        var latestSummary: CodexUsageLimitSummary?
-        var latestNonZeroSummary: CodexUsageLimitSummary?
+        var latestByID: [String: CodexUsageLimitSummary] = [:]
+        var latestNonZeroByID: [String: CodexUsageLimitSummary] = [:]
 
         for line in content.split(separator: "\n").reversed() {
             guard
@@ -238,24 +255,22 @@ struct CodexLocalProvider: AgentTaskProvider {
                 continue
             }
 
-            if latestSummary == nil {
-                latestSummary = summary
-            }
+            let id = summary.limitID ?? "unknown"
 
-            if latestNonZeroSummary == nil, isNonZeroUsageLimit(summary) {
-                latestNonZeroSummary = summary
+            if latestByID[id] == nil {
+                latestByID[id] = summary
             }
-
-            if latestSummary != nil && latestNonZeroSummary != nil {
-                break
+            if latestNonZeroByID[id] == nil, isNonZeroUsageLimit(summary) {
+                latestNonZeroByID[id] = summary
             }
         }
 
-        guard latestSummary != nil || latestNonZeroSummary != nil else {
-            return nil
+        var result: [String: CodexUsageLimitSnapshot] = [:]
+        let allIDs = Set(latestByID.keys).union(latestNonZeroByID.keys)
+        for id in allIDs {
+            result[id] = CodexUsageLimitSnapshot(latest: latestByID[id], latestNonZero: latestNonZeroByID[id])
         }
-
-        return CodexUsageLimitSnapshot(latest: latestSummary, latestNonZero: latestNonZeroSummary)
+        return result
     }
 
     private func codexUsageLimitSummary(
@@ -272,6 +287,7 @@ struct CodexLocalProvider: AgentTaskProvider {
         let secondary = (rateLimits["secondary"] as? [String: Any]).flatMap(codexUsageLimit)
 
         return CodexUsageLimitSummary(
+            limitID: rateLimits["limit_id"] as? String,
             limitName: rateLimits["limit_name"] as? String,
             primary: primary,
             secondary: secondary,

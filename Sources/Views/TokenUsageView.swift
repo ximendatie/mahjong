@@ -4,7 +4,7 @@ import AppKit
 struct TokenUsageView: View {
     @ObservedObject var taskStore: AgentTaskStore
     @State private var selectedRange = TokenUsageTimeRange.all
-    @State private var codexUsageLimitState = CodexUsageLimitViewState.loading
+    @State private var codexUsageLimitState = CodexUsageLimitViewState<[CodexUsageLimitSummary]>.loading
     @State private var isCodexUsageLimitRefreshing = false
     @State private var claudeUsageSummary: ClaudeTokenUsageSummary? = nil
     @State private var claudeUsageLimitState = ClaudeUsageLimitViewState.loading
@@ -201,10 +201,10 @@ struct TokenUsageView: View {
 
         let limits = await CodexLocalProvider().fetchUsageLimits()
         await MainActor.run {
-            if let limits {
-                codexUsageLimitState = .loaded(limits)
-            } else {
+            if limits.isEmpty {
                 codexUsageLimitState = .unavailable
+            } else {
+                codexUsageLimitState = .loaded(limits)
             }
             isCodexUsageLimitRefreshing = false
         }
@@ -240,7 +240,7 @@ struct TokenUsageView: View {
 }
 
 private struct CodexRemainingUsageCard: View {
-    let state: CodexUsageLimitViewState
+    let state: CodexUsageLimitViewState<[CodexUsageLimitSummary]>
     let isRefreshing: Bool
     let onRefresh: () -> Void
 
@@ -256,17 +256,19 @@ private struct CodexRemainingUsageCard: View {
                     onRefresh: onRefresh
                 )
                 CodexRemainingUsageSkeleton()
-            case .loaded(let summary):
+            case .loaded(let summaries):
+                let latestAt = summaries.map(\.observedAt).max() ?? Date.distantPast
                 CodexRemainingUsageHeader(
                     title: "Codex 剩余用量",
-                    subtitle: summary.limitName ?? "本地 Codex rate limit",
-                    trailingText: "最近 \(Formatters.relative(summary.observedAt))",
+                    subtitle: summaries.compactMap(\.limitName).joined(separator: " · "),
+                    trailingText: "最近 \(Formatters.relative(latestAt))",
                     isRefreshing: isRefreshing,
                     onRefresh: onRefresh
                 )
-                VStack(spacing: 8) {
-                    ForEach(Array(limits(for: summary).enumerated()), id: \.offset) { _, limit in
-                        CodexRemainingUsageRow(limit: limit)
+                // Each limit group becomes its own labeled section
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(Array(summaries.enumerated()), id: \.offset) { _, summary in
+                        CodexRemainingUsageGroup(summary: summary)
                     }
                 }
             case .unavailable:
@@ -286,15 +288,33 @@ private struct CodexRemainingUsageCard: View {
                 .fill(Color.primary.opacity(0.045))
         )
     }
+}
 
-    private func limits(for summary: CodexUsageLimitSummary) -> [CodexUsageLimit] {
-        [summary.primary, summary.secondary].compactMap(\.self)
+private struct CodexRemainingUsageGroup: View {
+    let summary: CodexUsageLimitSummary
+
+    private var limits: [CodexUsageLimit] {
+        [summary.primary, summary.secondary].compactMap { $0 }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let name = summary.limitName {
+                Text("\(name) 限额")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.bottom, 2)
+            }
+            ForEach(Array(limits.enumerated()), id: \.offset) { _, limit in
+                CodexRemainingUsageRow(limit: limit)
+            }
+        }
     }
 }
 
-private enum CodexUsageLimitViewState: Equatable {
+private enum CodexUsageLimitViewState<T: Equatable>: Equatable {
     case loading
-    case loaded(CodexUsageLimitSummary)
+    case loaded(T)
     case unavailable
 }
 
@@ -1150,16 +1170,8 @@ private struct ClaudeUsageLimitCard: View {
                     onRefresh: onRefresh
                 )
                 VStack(spacing: 8) {
-                    ClaudeUsageLimitRow(
-                        title: "本次会话",
-                        window: summary.sessionWindow,
-                        referenceTokens: summary.weeklyWindow.tokens
-                    )
-                    ClaudeUsageLimitRow(
-                        title: "本周",
-                        window: summary.weeklyWindow,
-                        referenceTokens: nil
-                    )
+                    ClaudeUsageLimitRow(title: "本次会话", window: summary.sessionWindow)
+                    ClaudeUsageLimitRow(title: "本周", window: summary.weeklyWindow)
                 }
                 ClaudeUsageCacheBreakdown(summary: summary)
             case .unavailable:
@@ -1241,49 +1253,39 @@ private struct ClaudeUsageLimitHeader: View {
 private struct ClaudeUsageLimitRow: View {
     let title: String
     let window: ClaudeUsageWindow
-    /// If non-nil, show a progress bar relative to this reference value
-    let referenceTokens: Int?
-
-    private var progress: Double {
-        guard let ref = referenceTokens, ref > 0 else { return 1.0 }
-        return max(0, min(1, Double(window.tokens) / Double(ref)))
-    }
 
     private var resetText: String {
         let calendar = Calendar.current
         if calendar.isDateInToday(window.resetsAt) {
             let formatter = DateFormatter()
             formatter.dateFormat = "HH:mm"
-            return "今天 \(formatter.string(from: window.resetsAt))"
+            return "今天 \(formatter.string(from: window.resetsAt)) 重置"
         }
         if calendar.isDateInTomorrow(window.resetsAt) {
             let formatter = DateFormatter()
             formatter.dateFormat = "HH:mm"
-            return "明天 \(formatter.string(from: window.resetsAt))"
+            return "明天 \(formatter.string(from: window.resetsAt)) 重置"
         }
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "zh_CN")
         formatter.dateFormat = "M月d日 EEE"
-        return formatter.string(from: window.resetsAt)
+        return "\(formatter.string(from: window.resetsAt)) 重置"
     }
 
     var body: some View {
-        Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 6) {
-            GridRow {
-                Text(title)
-                    .font(.callout.weight(.semibold))
-                    .frame(width: 64, alignment: .leading)
-                ProgressView(value: progress)
-                    .progressViewStyle(.linear)
-                    .tint(Color.orange)
-                Text(Formatters.tokens(window.tokens))
-                    .font(.callout.monospacedDigit().weight(.semibold))
-                    .frame(width: 72, alignment: .trailing)
-                Text(resetText)
-                    .font(.callout.monospacedDigit().weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 100, alignment: .trailing)
-            }
+        HStack(spacing: 0) {
+            Text(title)
+                .font(.callout.weight(.semibold))
+                .frame(width: 64, alignment: .leading)
+
+            Text(Formatters.tokens(window.tokens))
+                .font(.callout.monospacedDigit().weight(.bold))
+
+            Spacer(minLength: 8)
+
+            Text(resetText)
+                .font(.callout.monospacedDigit().weight(.medium))
+                .foregroundStyle(.secondary)
         }
     }
 }

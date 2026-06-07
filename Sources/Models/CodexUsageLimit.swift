@@ -1,6 +1,7 @@
 import Foundation
 
 struct CodexUsageLimitSummary: Equatable, Sendable {
+    var limitID: String?
     var limitName: String?
     var primary: CodexUsageLimit
     var secondary: CodexUsageLimit?

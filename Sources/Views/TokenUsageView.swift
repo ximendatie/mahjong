@@ -7,6 +7,8 @@ struct TokenUsageView: View {
     @State private var codexUsageLimitState = CodexUsageLimitViewState.loading
     @State private var isCodexUsageLimitRefreshing = false
     @State private var claudeUsageSummary: ClaudeTokenUsageSummary? = nil
+    @State private var claudeUsageLimitState = ClaudeUsageLimitViewState.loading
+    @State private var isClaudeUsageLimitRefreshing = false
 
     private var summaries: [TokenUsageSummary] {
         taskStore.tokenUsageSummaries(for: selectedRange)
@@ -64,7 +66,15 @@ struct TokenUsageView: View {
                             }
                         )
 
-                        ClaudeTokenUsageCard(summary: claudeUsageSummary)
+                        ClaudeUsageLimitCard(
+                            state: claudeUsageLimitState,
+                            isRefreshing: isClaudeUsageLimitRefreshing,
+                            onRefresh: {
+                                Task {
+                                    await refreshClaudeUsageLimits(showLoading: true)
+                                }
+                            }
+                        )
 
                         if summaries.isEmpty {
                             TokenUsageEmptyState(
@@ -98,6 +108,7 @@ struct TokenUsageView: View {
         .task {
             claudeUsageSummary = computeClaudeUsage(from: taskStore.tasks)
             await refreshCodexUsageLimits(showLoading: true)
+            await refreshClaudeUsageLimits(showLoading: true)
 
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(60))
@@ -105,12 +116,14 @@ struct TokenUsageView: View {
                     return
                 }
                 await refreshCodexUsageLimits(showLoading: false)
+                await refreshClaudeUsageLimits(showLoading: false)
             }
         }
         .onChange(of: taskStore.tasks.map(\.updatedAt).max()) { _, _ in
             claudeUsageSummary = computeClaudeUsage(from: taskStore.tasks)
             Task {
                 await refreshCodexUsageLimits(showLoading: false)
+                await refreshClaudeUsageLimits(showLoading: false)
             }
         }
     }
@@ -194,6 +207,34 @@ struct TokenUsageView: View {
                 codexUsageLimitState = .unavailable
             }
             isCodexUsageLimitRefreshing = false
+        }
+    }
+
+    private func refreshClaudeUsageLimits(showLoading: Bool) async {
+        let shouldRefresh = await MainActor.run {
+            guard !isClaudeUsageLimitRefreshing else {
+                return false
+            }
+
+            isClaudeUsageLimitRefreshing = true
+            if showLoading, case .unavailable = claudeUsageLimitState {
+                claudeUsageLimitState = .loading
+            } else if showLoading, case .loading = claudeUsageLimitState {
+                claudeUsageLimitState = .loading
+            }
+            return true
+        }
+
+        guard shouldRefresh else { return }
+
+        let limits = await ClaudeLocalProvider().fetchUsageLimits()
+        await MainActor.run {
+            if let limits {
+                claudeUsageLimitState = .loaded(limits)
+            } else {
+                claudeUsageLimitState = .unavailable
+            }
+            isClaudeUsageLimitRefreshing = false
         }
     }
 }
@@ -1077,40 +1118,58 @@ private struct TokenUsageEmptyState: View {
     }
 }
 
-// MARK: - Claude Token Usage Card
+// MARK: - Claude Usage Limit Card
 
-private struct ClaudeTokenUsageCard: View {
-    let summary: ClaudeTokenUsageSummary?
+private enum ClaudeUsageLimitViewState: Equatable {
+    case loading
+    case loaded(ClaudeUsageLimitSummary)
+    case unavailable
+}
+
+private struct ClaudeUsageLimitCard: View {
+    let state: ClaudeUsageLimitViewState
+    let isRefreshing: Bool
+    let onRefresh: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if let summary {
-                ClaudeTokenUsageHeader(
-                    subtitle: summary.primaryModel ?? "Claude CLI / Desktop",
-                    trailingText: "最近 \(Formatters.relative(summary.observedAt))"
+            switch state {
+            case .loading:
+                ClaudeUsageLimitHeader(
+                    subtitle: "读取本地 Claude 会话中",
+                    trailingText: "加载中",
+                    isRefreshing: isRefreshing,
+                    onRefresh: onRefresh
+                )
+                ClaudeUsageLimitSkeleton()
+            case .loaded(let summary):
+                ClaudeUsageLimitHeader(
+                    subtitle: tierSubtitle(summary.serviceTier),
+                    trailingText: "最近 \(Formatters.relative(summary.observedAt))",
+                    isRefreshing: isRefreshing,
+                    onRefresh: onRefresh
                 )
                 VStack(spacing: 8) {
-                    ClaudeTokenUsageRow(
-                        title: "今日",
-                        tokens: summary.todayTokens,
-                        sessions: summary.todaySessions,
-                        fraction: summary.weekTokens > 0
-                            ? Double(summary.todayTokens) / Double(summary.weekTokens)
-                            : 0
+                    ClaudeUsageLimitRow(
+                        title: "本次会话",
+                        window: summary.sessionWindow,
+                        referenceTokens: summary.weeklyWindow.tokens
                     )
-                    ClaudeTokenUsageRow(
+                    ClaudeUsageLimitRow(
                         title: "本周",
-                        tokens: summary.weekTokens,
-                        sessions: summary.weekSessions,
-                        fraction: 1.0
+                        window: summary.weeklyWindow,
+                        referenceTokens: nil
                     )
                 }
-            } else {
-                ClaudeTokenUsageHeader(
+                ClaudeUsageCacheBreakdown(summary: summary)
+            case .unavailable:
+                ClaudeUsageLimitHeader(
                     subtitle: "等待 Claude 会话数据",
-                    trailingText: "暂无数据"
+                    trailingText: "暂无数据",
+                    isRefreshing: isRefreshing,
+                    onRefresh: onRefresh
                 )
-                ClaudeTokenUsageUnavailable()
+                ClaudeUsageLimitUnavailable()
             }
         }
         .padding(16)
@@ -1119,24 +1178,34 @@ private struct ClaudeTokenUsageCard: View {
                 .fill(Color.primary.opacity(0.045))
         )
     }
+
+    private func tierSubtitle(_ tier: String?) -> String {
+        switch tier {
+        case "priority": return "Claude CLI / Desktop · 优先级模式"
+        case "standard": return "Claude CLI / Desktop · 标准模式"
+        default: return "Claude CLI / Desktop"
+        }
+    }
 }
 
-private struct ClaudeTokenUsageHeader: View {
+private struct ClaudeUsageLimitHeader: View {
     let subtitle: String
     let trailingText: String
+    let isRefreshing: Bool
+    let onRefresh: () -> Void
 
     private let claudeColor = Color.orange
 
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: "cpu.fill")
+            Image(systemName: "waveform.path.ecg")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(claudeColor)
                 .frame(width: 26, height: 26)
                 .background(Circle().fill(claudeColor.opacity(0.15)))
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Claude Token 用量")
+                Text("Claude 用量监控")
                     .font(.headline.weight(.semibold))
                 Text(subtitle)
                     .font(.caption.weight(.medium))
@@ -1145,25 +1214,57 @@ private struct ClaudeTokenUsageHeader: View {
 
             Spacer()
 
-            Text(trailingText)
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                Text(trailingText)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+
+                Button(action: onRefresh) {
+                    if isRefreshing {
+                        ProgressView()
+                            .controlSize(.small)
+                            .frame(width: 26, height: 26)
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 13, weight: .semibold))
+                            .frame(width: 26, height: 26)
+                    }
+                }
+                .buttonStyle(.borderless)
+                .disabled(isRefreshing)
+                .help("刷新 Claude 用量")
+            }
         }
     }
 }
 
-private struct ClaudeTokenUsageRow: View {
+private struct ClaudeUsageLimitRow: View {
     let title: String
-    let tokens: Int
-    let sessions: Int
-    let fraction: Double
+    let window: ClaudeUsageWindow
+    /// If non-nil, show a progress bar relative to this reference value
+    let referenceTokens: Int?
 
     private var progress: Double {
-        max(0, min(1, fraction))
+        guard let ref = referenceTokens, ref > 0 else { return 1.0 }
+        return max(0, min(1, Double(window.tokens) / Double(ref)))
     }
 
-    private var sessionsText: String {
-        "\(sessions) 次会话"
+    private var resetText: String {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(window.resetsAt) {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "HH:mm"
+            return "今天 \(formatter.string(from: window.resetsAt))"
+        }
+        if calendar.isDateInTomorrow(window.resetsAt) {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "HH:mm"
+            return "明天 \(formatter.string(from: window.resetsAt))"
+        }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "M月d日 EEE"
+        return formatter.string(from: window.resetsAt)
     }
 
     var body: some View {
@@ -1175,25 +1276,85 @@ private struct ClaudeTokenUsageRow: View {
                 ProgressView(value: progress)
                     .progressViewStyle(.linear)
                     .tint(Color.orange)
-                Text(Formatters.tokens(tokens))
+                Text(Formatters.tokens(window.tokens))
                     .font(.callout.monospacedDigit().weight(.semibold))
                     .frame(width: 72, alignment: .trailing)
-                Text(sessionsText)
+                Text(resetText)
                     .font(.callout.monospacedDigit().weight(.medium))
                     .foregroundStyle(.secondary)
-                    .frame(width: 74, alignment: .trailing)
+                    .frame(width: 100, alignment: .trailing)
             }
         }
     }
 }
 
-private struct ClaudeTokenUsageUnavailable: View {
+private struct ClaudeUsageCacheBreakdown: View {
+    let summary: ClaudeUsageLimitSummary
+
+    private var window: ClaudeUsageWindow { summary.sessionWindow }
+    private let claudeColor = Color.orange
+
+    var body: some View {
+        HStack(spacing: 16) {
+            breakdownItem("输入", tokens: window.inputTokens, systemImage: "arrow.down.circle")
+            breakdownItem("输出", tokens: window.outputTokens, systemImage: "arrow.up.circle")
+            breakdownItem("缓存", tokens: window.cacheTokens, systemImage: "internaldrive")
+            Spacer(minLength: 0)
+            Text("\(window.turns) 次 API 调用")
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
+        }
+        .padding(.top, 2)
+    }
+
+    private func breakdownItem(_ label: String, tokens: Int, systemImage: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: systemImage)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(claudeColor.opacity(0.7))
+            Text(label)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
+            Text(Formatters.tokens(tokens))
+                .font(.caption.monospacedDigit().weight(.semibold))
+        }
+    }
+}
+
+private struct ClaudeUsageLimitSkeleton: View {
+    var body: some View {
+        VStack(spacing: 8) {
+            skeletonRow(titleWidth: 52, barOpacity: 0.18)
+            skeletonRow(titleWidth: 34, barOpacity: 0.13)
+        }
+        .redacted(reason: .placeholder)
+    }
+
+    private func skeletonRow(titleWidth: CGFloat, barOpacity: Double) -> some View {
+        HStack(spacing: 12) {
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(Color.primary.opacity(0.18))
+                .frame(width: titleWidth, height: 18)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(Color.orange.opacity(barOpacity))
+                .frame(height: 8)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(Color.primary.opacity(0.16))
+                .frame(width: 56, height: 18)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(Color.primary.opacity(0.12))
+                .frame(width: 80, height: 18)
+        }
+    }
+}
+
+private struct ClaudeUsageLimitUnavailable: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "clock.badge.questionmark")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(.secondary)
-            Text("运行一次 Claude 后，token 用量会从本地会话记录中自动统计。")
+            Text("运行一次 Claude 后，用量数据会从本地会话记录中自动统计。")
                 .font(.callout.weight(.medium))
                 .foregroundStyle(.secondary)
             Spacer(minLength: 0)

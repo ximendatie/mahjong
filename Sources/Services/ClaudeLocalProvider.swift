@@ -27,6 +27,9 @@ struct ClaudeLocalProvider: AgentTaskProvider {
             return nil
         }
 
+        // Use filesystem modification time as a reliable "actively being written" signal
+        let fileModDate = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.modificationDate] as? Date
+
         var sessionID = url.deletingPathExtension().lastPathComponent
         var title: String?
         var cwd: String?
@@ -34,6 +37,8 @@ struct ClaudeLocalProvider: AgentTaskProvider {
         var totalTokens = 0
         var lastTimestamp: Date?
         var lastSpeaker: String?
+        // Track unresolved tool calls: Claude writes tool_use then waits for tool_result
+        var pendingToolUseIDs = Set<String>()
 
         for line in content.split(separator: "\n") {
             guard
@@ -77,17 +82,38 @@ struct ClaudeLocalProvider: AgentTaskProvider {
             if let usage = message["usage"] as? [String: Any] {
                 totalTokens = max(totalTokens, sumClaudeTokens(in: usage))
             }
+
+            // Track tool_use blocks from assistant and tool_result blocks from user
+            if let contentBlocks = message["content"] as? [[String: Any]] {
+                for block in contentBlocks {
+                    if let blockType = block["type"] as? String {
+                        if blockType == "tool_use", let toolID = block["id"] as? String {
+                            pendingToolUseIDs.insert(toolID)
+                        } else if blockType == "tool_result", let toolID = block["tool_use_id"] as? String {
+                            pendingToolUseIDs.remove(toolID)
+                        }
+                    }
+                }
+            }
         }
 
         let updatedAt = lastTimestamp ?? Date.distantPast
-        let isRecent = Date().timeIntervalSince(updatedAt) < 15 * 60
-        let status: AgentTaskStatus = isRecent && lastSpeaker == "user" ? .running : (Date().timeIntervalSince(updatedAt) < 24 * 60 * 60 ? .completed : .history)
+        let now = Date()
+        // File actively being written to within last 90 seconds → running
+        let fileBeingWritten = fileModDate.map { now.timeIntervalSince($0) < 90 } ?? false
+        // Unresolved tool calls within a recent session → running
+        let hasUnresolvedToolCalls = !pendingToolUseIDs.isEmpty && now.timeIntervalSince(updatedAt) < 15 * 60
+        // Classic signal: last speaker is user (Claude hasn't responded yet) within 15 min
+        let waitingForResponse = lastSpeaker == "user" && now.timeIntervalSince(updatedAt) < 15 * 60
+
+        let isRunning = fileBeingWritten || hasUnresolvedToolCalls || waitingForResponse
+        let status: AgentTaskStatus = isRunning ? .running : (now.timeIntervalSince(updatedAt) < 24 * 60 * 60 ? .completed : .history)
         let folderName = cwd.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "Claude 会话"
 
         return AgentTask(
             id: "claude:\(sessionID)",
             title: title ?? folderName,
-            summary: status == .running ? "Claude 本机会话最近有用户输入，可能正在处理" : "Claude 本机会话最近活动",
+            summary: status == .running ? "Claude 本机会话正在运行中" : "Claude 本机会话最近活动",
             agent: "Claude",
             providerID: providerID,
             model: model ?? "unknown",

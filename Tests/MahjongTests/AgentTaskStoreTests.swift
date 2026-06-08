@@ -272,6 +272,41 @@ final class AgentTaskStoreTests: XCTestCase {
         XCTAssertEqual(store.futureTasks[0].note, "新的第一行\n更多细节")
     }
 
+    func testFutureTasksCanBeManuallyReordered() {
+        let store = AgentTaskStore(providers: [], runtimeProviders: [])
+
+        store.createFutureTask(title: "第一项", note: "")
+        store.createFutureTask(title: "第二项", note: "")
+        store.createFutureTask(title: "第三项", note: "")
+
+        let originalOrder = store.sortedFutureTasks()
+        XCTAssertEqual(originalOrder.map(\.title), ["第三项", "第二项", "第一项"])
+
+        store.moveFutureTask(id: originalOrder[2].id, before: originalOrder[0].id)
+
+        XCTAssertEqual(store.sortedFutureTasks().map(\.title), ["第一项", "第三项", "第二项"])
+
+        let reloadedStore = AgentTaskStore(providers: [], runtimeProviders: [])
+        XCTAssertEqual(reloadedStore.sortedFutureTasks().map(\.title), ["第一项", "第三项", "第二项"])
+    }
+
+    func testLegacyFutureTasksAreNormalizedToStableSortOrder() throws {
+        let encoder = JSONEncoder()
+        let older = Date(timeIntervalSince1970: 100)
+        let newer = Date(timeIntervalSince1970: 200)
+        let tasks = [
+            FutureTaskItem(title: "较早", note: "", isCompleted: false, sortOrder: 0, createdAt: older, updatedAt: older),
+            FutureTaskItem(title: "较新", note: "", isCompleted: false, sortOrder: 0, createdAt: newer, updatedAt: newer)
+        ]
+        let data = try encoder.encode(tasks)
+        UserDefaults.standard.set(data, forKey: "local.mahjong.futureTasks")
+
+        let store = AgentTaskStore(providers: [], runtimeProviders: [])
+
+        XCTAssertEqual(store.sortedFutureTasks().map(\.title), ["较新", "较早"])
+        XCTAssertEqual(store.futureTasks.map(\.sortOrder).sorted(), [0, 1])
+    }
+
     func testMenuBarModeDefaultsOnAndPersists() {
         let store = AgentTaskStore(providers: [], runtimeProviders: [])
 

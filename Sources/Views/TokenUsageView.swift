@@ -472,6 +472,7 @@ private struct CodexRemainingUsageRow: View {
                         .fill(barColor)
                         .frame(width: max(4, geo.size.width * progress))
                 }
+
             }
             .frame(height: 4)
             Text(percentText)
@@ -503,7 +504,7 @@ private struct CodexRemainingUsageRow: View {
     }
 
     private var percentText: String {
-        String(format: "%.0f%%", limit.remainingPercent)
+        String(format: "%.1f%%", limit.remainingPercent)
     }
 
     private var resetText: String {

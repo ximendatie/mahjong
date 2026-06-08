@@ -57,7 +57,8 @@ final class AgentTaskStore: ObservableObject {
 
         tasks = []
         runtimes = []
-        futureTasks = Self.loadFutureTasks()
+        let loadedFutureTasks = Self.normalizedFutureTasks(Self.loadFutureTasks())
+        futureTasks = loadedFutureTasks
         let loadedProviderSettings = Self.loadProviderSettings(descriptors: self.descriptors)
         providerSettings = loadedProviderSettings
         diagnostics = initialDiagnostics(for: loadedProviderSettings, descriptors: self.descriptors)
@@ -69,6 +70,10 @@ final class AgentTaskStore: ObservableObject {
         hasInitializedCompletedReadState = loadedReadCompletedTaskIDs != nil
         unreadCompletedCount = 0
         knownCompletedTaskIDs = Set(tasks.filter { $0.status == .completed }.map(\.id))
+
+        if loadedFutureTasks != Self.loadFutureTasks() {
+            persistFutureTasks()
+        }
     }
 
     deinit {
@@ -185,6 +190,9 @@ final class AgentTaskStore: ObservableObject {
                 if lhs.isCompleted != rhs.isCompleted {
                     return !lhs.isCompleted && rhs.isCompleted
                 }
+                if lhs.sortOrder != rhs.sortOrder {
+                    return lhs.sortOrder < rhs.sortOrder
+                }
                 return lhs.updatedAt > rhs.updatedAt
             }
     }
@@ -201,7 +209,8 @@ final class AgentTaskStore: ObservableObject {
 
         let task = FutureTaskItem(
             title: trimmedTitle.isEmpty ? trimmedNote.firstLineTitle : trimmedTitle,
-            note: trimmedNote
+            note: trimmedNote,
+            sortOrder: nextFutureTaskSortOrder(isCompleted: false)
         )
 
         futureTasks.append(task)
@@ -232,7 +241,38 @@ final class AgentTaskStore: ObservableObject {
         }
 
         futureTasks[index].isCompleted = isCompleted
+        futureTasks[index].sortOrder = nextFutureTaskSortOrder(isCompleted: isCompleted)
         futureTasks[index].updatedAt = Date()
+        persistFutureTasks()
+    }
+
+    func moveFutureTask(id: FutureTaskItem.ID, before targetID: FutureTaskItem.ID) {
+        guard id != targetID,
+              let sourceTask = futureTasks.first(where: { $0.id == id }),
+              let targetTask = futureTasks.first(where: { $0.id == targetID }),
+              sourceTask.isCompleted == targetTask.isCompleted else {
+            return
+        }
+
+        var group = futureTasks
+            .filter { $0.isCompleted == sourceTask.isCompleted }
+            .sorted { lhs, rhs in
+                if lhs.sortOrder != rhs.sortOrder {
+                    return lhs.sortOrder < rhs.sortOrder
+                }
+                return lhs.updatedAt > rhs.updatedAt
+            }
+
+        guard let fromIndex = group.firstIndex(where: { $0.id == id }),
+              let toIndex = group.firstIndex(where: { $0.id == targetID }) else {
+            return
+        }
+
+        let movingTask = group.remove(at: fromIndex)
+        let destinationIndex = fromIndex < toIndex ? max(0, toIndex - 1) : toIndex
+        group.insert(movingTask, at: destinationIndex)
+
+        reassignFutureTaskSortOrders(for: sourceTask.isCompleted, using: group)
         persistFutureTasks()
     }
 
@@ -542,6 +582,31 @@ final class AgentTaskStore: ObservableObject {
         }
     }
 
+    private static func normalizedFutureTasks(_ tasks: [FutureTaskItem]) -> [FutureTaskItem] {
+        var normalized = tasks
+        var nextOrder = 0
+
+        for isCompleted in [false, true] {
+            let orderedIDs = normalized
+                .enumerated()
+                .filter { $0.element.isCompleted == isCompleted }
+                .sorted { lhs, rhs in
+                    if lhs.element.sortOrder != rhs.element.sortOrder {
+                        return lhs.element.sortOrder < rhs.element.sortOrder
+                    }
+                    return lhs.element.updatedAt > rhs.element.updatedAt
+                }
+                .map(\.offset)
+
+            for index in orderedIDs {
+                normalized[index].sortOrder = nextOrder
+                nextOrder += 1
+            }
+        }
+
+        return normalized
+    }
+
     private static func loadProviderSettings(descriptors: [AgentProviderDescriptor]) -> [AgentProviderSetting] {
         let defaults = UserDefaults.standard
         let defaultSettings = defaultProviderSettings(descriptors: descriptors)
@@ -585,6 +650,31 @@ final class AgentTaskStore: ObservableObject {
             UserDefaults.standard.set(data, forKey: Self.futureTasksStorageKey)
         } catch {
             assertionFailure("Failed to persist future plans: \(error)")
+        }
+    }
+
+    private func nextFutureTaskSortOrder(isCompleted: Bool) -> Int {
+        let currentMinimum = futureTasks
+            .filter { $0.isCompleted == isCompleted }
+            .map(\.sortOrder)
+            .min()
+
+        return (currentMinimum ?? 0) - 1
+    }
+
+    private func reassignFutureTaskSortOrders(for isCompleted: Bool, using orderedTasks: [FutureTaskItem]) {
+        let otherTasks = futureTasks.filter { $0.isCompleted != isCompleted }
+        var reorderedByID = Dictionary(uniqueKeysWithValues: orderedTasks.enumerated().map { offset, task in
+            var updatedTask = task
+            updatedTask.sortOrder = offset
+            return (updatedTask.id, updatedTask)
+        })
+
+        futureTasks = otherTasks + futureTasks.compactMap { task in
+            guard task.isCompleted == isCompleted else {
+                return nil
+            }
+            return reorderedByID.removeValue(forKey: task.id)
         }
     }
 

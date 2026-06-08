@@ -7,6 +7,7 @@ struct BoardView: View {
     @State private var selectedTaskID: String?
     @State private var showsArchivedTasks = false
     @State private var showsArchivedFutureTasks = true
+    @State private var showsFutureTaskComposer = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -36,6 +37,14 @@ struct BoardView: View {
             Spacer()
 
             privacyBadge
+
+            if selectedTab == .futureTasks {
+                Button {
+                    showsFutureTaskComposer = true
+                } label: {
+                    Label("新建计划", systemImage: "plus")
+                }
+            }
 
             Button {
                 taskStore.refreshNow()
@@ -155,7 +164,8 @@ struct BoardView: View {
         case .futureTasks:
             FutureTasksView(
                 taskStore: taskStore,
-                showsArchivedPlans: $showsArchivedFutureTasks
+                showsArchivedPlans: $showsArchivedFutureTasks,
+                showsComposer: $showsFutureTaskComposer
             )
         case .settings:
             SettingsView(taskStore: taskStore)

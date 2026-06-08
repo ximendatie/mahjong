@@ -89,40 +89,34 @@ struct CodexLocalProvider: AgentTaskProvider {
     }
 
     private func readSessionIndex(from url: URL) -> [CodexIndexEntry] {
-        guard let content = try? String(contentsOf: url, encoding: .utf8) else {
-            return []
+        var entries: [CodexIndexEntry] = []
+
+        UTF8LineReader.readLines(from: url) { line in
+            guard
+                let data = String(line).data(using: .utf8),
+                let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                let id = object["id"] as? String
+            else {
+                return
+            }
+
+            let threadName = object["thread_name"] as? String ?? "Codex 会话 \(id.prefix(8))"
+            let updatedAt = parseDate(object["updated_at"] as? String) ?? Date.distantPast
+            entries.append(CodexIndexEntry(id: id, threadName: threadName, updatedAt: updatedAt))
         }
 
-        return content
-            .split(separator: "\n")
-            .compactMap { line -> CodexIndexEntry? in
-                guard
-                    let data = String(line).data(using: .utf8),
-                    let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                    let id = object["id"] as? String
-                else {
-                    return nil
-                }
-
-                let threadName = object["thread_name"] as? String ?? "Codex 会话 \(id.prefix(8))"
-                let updatedAt = parseDate(object["updated_at"] as? String) ?? Date.distantPast
-                return CodexIndexEntry(id: id, threadName: threadName, updatedAt: updatedAt)
-            }
+        return entries
     }
 
     private func readCodexSessionMetadata(from url: URL) -> CodexSessionMetadata {
-        guard let content = try? String(contentsOf: url, encoding: .utf8) else {
-            return CodexSessionMetadata()
-        }
-
         var metadata = CodexSessionMetadata()
 
-        for line in content.split(separator: "\n") {
+        UTF8LineReader.readLines(from: url) { line in
             guard
                 let data = String(line).data(using: .utf8),
                 let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
             else {
-                continue
+                return
             }
 
             if let timestamp = parseDate(object["timestamp"] as? String) {
@@ -130,7 +124,7 @@ struct CodexLocalProvider: AgentTaskProvider {
             }
 
             guard let payload = object["payload"] as? [String: Any] else {
-                continue
+                return
             }
 
             if object["type"] as? String == "session_meta" {
@@ -218,6 +212,11 @@ struct CodexLocalProvider: AgentTaskProvider {
         return latestByID.values.sorted { $0.observedAt > $1.observedAt }
     }
 
+    private struct CodexUsageLimitSnapshot {
+        let latest: CodexUsageLimitSummary?
+        let latestNonZero: CodexUsageLimitSummary?
+    }
+
     /// Returns a dict of limitID → snapshot for all distinct limit_ids in the file.
     private func readUsageLimitSnapshots(from fileURL: URL) -> [String: CodexUsageLimitSnapshot] {
         guard let content = try? String(contentsOf: fileURL, encoding: .utf8) else {
@@ -228,6 +227,7 @@ struct CodexLocalProvider: AgentTaskProvider {
         var latestNonZeroByID: [String: CodexUsageLimitSummary] = [:]
 
         for line in content.split(separator: "\n").reversed() {
+
             guard
                 let data = String(line).data(using: .utf8),
                 let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -235,7 +235,7 @@ struct CodexLocalProvider: AgentTaskProvider {
                 let rateLimits = payload["rate_limits"] as? [String: Any],
                 let summary = codexUsageLimitSummary(from: rateLimits, timestamp: parseDate(object["timestamp"] as? String))
             else {
-                continue
+                return
             }
 
             let id = summary.limitID ?? "unknown"
@@ -254,6 +254,7 @@ struct CodexLocalProvider: AgentTaskProvider {
             result[id] = CodexUsageLimitSnapshot(latest: latestByID[id], latestNonZero: latestNonZeroByID[id])
         }
         return result
+
     }
 
     private func codexUsageLimitSummary(
@@ -296,6 +297,10 @@ struct CodexLocalProvider: AgentTaskProvider {
 
     private func isNonZeroUsageLimit(_ summary: CodexUsageLimitSummary) -> Bool {
         summary.primary.usedPercent > 0 || (summary.secondary?.usedPercent ?? 0) > 0
+    }
+
+    private func isZeroUsageLimit(_ summary: CodexUsageLimitSummary) -> Bool {
+        summary.primary.usedPercent == 0 && (summary.secondary?.usedPercent ?? 0) == 0
     }
 
     private func findJSONLFiles(in directory: URL) -> [URL] {
@@ -460,9 +465,4 @@ private struct CodexSessionMetadata {
     var model: String?
     var cwd: String?
     var totalTokens = 0
-}
-
-private struct CodexUsageLimitSnapshot {
-    let latest: CodexUsageLimitSummary?
-    let latestNonZero: CodexUsageLimitSummary?
 }

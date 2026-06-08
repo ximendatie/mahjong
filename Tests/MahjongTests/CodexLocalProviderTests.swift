@@ -200,4 +200,28 @@ final class CodexLocalProviderTests: XCTestCase {
         XCTAssertEqual(summary.secondary?.usedPercent, 10.0)
         XCTAssertEqual(summary.secondary?.remainingPercent, 90.0)
     }
+
+    func testFetchUsageLimitsAcceptsZeroSnapshotAfterWindowReset() async throws {
+        let sessionID = "77777777-8888-9999-0000-111111111111"
+        let sessionsDirectory = temporaryHome
+            .appendingPathComponent(".codex", isDirectory: true)
+            .appendingPathComponent("sessions", isDirectory: true)
+            .appendingPathComponent("2026", isDirectory: true)
+        try FileManager.default.createDirectory(at: sessionsDirectory, withIntermediateDirectories: true)
+
+        let session = """
+        {"timestamp":"2026-06-04T09:00:00Z","type":"event_msg","payload":{"type":"token_count","rate_limits":{"primary":{"used_percent":11.0,"window_minutes":300,"resets_at":1780563600},"secondary":{"used_percent":10.0,"window_minutes":10080,"resets_at":1781156800}}}}
+        {"timestamp":"2026-06-04T10:00:01Z","type":"event_msg","payload":{"type":"token_count","rate_limits":{"limit_name":"GPT-5 Codex","primary":{"used_percent":0.0,"window_minutes":300,"resets_at":1780581600},"secondary":{"used_percent":0.0,"window_minutes":10080,"resets_at":1781161200}}}}
+        """
+        let sessionURL = sessionsDirectory.appendingPathComponent("rollout-\(sessionID).jsonl")
+        try session.write(to: sessionURL, atomically: true, encoding: .utf8)
+
+        let fetchedSummary = await CodexLocalProvider(homeDirectory: temporaryHome).fetchUsageLimits()
+        let summary = try XCTUnwrap(fetchedSummary)
+
+        XCTAssertEqual(summary.primary.usedPercent, 0.0)
+        XCTAssertEqual(summary.primary.remainingPercent, 100.0)
+        XCTAssertEqual(summary.secondary?.usedPercent, 0.0)
+        XCTAssertEqual(summary.secondary?.remainingPercent, 100.0)
+    }
 }

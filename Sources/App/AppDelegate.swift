@@ -51,7 +51,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupMainMenu() {
         let mainMenu = NSMenu()
         let appMenuItem = NSMenuItem()
+        let editMenuItem = NSMenuItem()
         mainMenu.addItem(appMenuItem)
+        mainMenu.addItem(editMenuItem)
 
         let appMenu = NSMenu(title: "mahjong")
         appMenu.addItem(NSMenuItem(title: "打开 Board", action: #selector(openBoard), keyEquivalent: "b", target: self))
@@ -59,6 +61,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         appMenu.addItem(.separator())
         appMenu.addItem(NSMenuItem(title: "退出 mahjong", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q", target: NSApp))
         appMenuItem.submenu = appMenu
+
+        let editMenu = NSMenu(title: "编辑")
+        editMenu.addItem(NSMenuItem(title: "撤销", action: Selector(("undo:")), keyEquivalent: "z", target: nil))
+        editMenu.addItem(NSMenuItem(title: "重做", action: Selector(("redo:")), keyEquivalent: "Z", target: nil))
+        editMenu.addItem(.separator())
+        editMenu.addItem(NSMenuItem(title: "剪切", action: #selector(NSText.cut(_:)), keyEquivalent: "x", target: nil))
+        editMenu.addItem(NSMenuItem(title: "复制", action: #selector(NSText.copy(_:)), keyEquivalent: "c", target: nil))
+        editMenu.addItem(NSMenuItem(title: "粘贴", action: #selector(NSText.paste(_:)), keyEquivalent: "v", target: nil))
+        editMenu.addItem(NSMenuItem(title: "全选", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a", target: nil))
+        editMenuItem.submenu = editMenu
 
         NSApp.mainMenu = mainMenu
     }

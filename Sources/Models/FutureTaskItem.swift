@@ -5,6 +5,7 @@ struct FutureTaskItem: Identifiable, Codable, Equatable, Sendable {
     var title: String
     var note: String
     var isCompleted: Bool
+    var sortOrder: Int
     var createdAt: Date
     var updatedAt: Date
 
@@ -13,6 +14,7 @@ struct FutureTaskItem: Identifiable, Codable, Equatable, Sendable {
         title: String,
         note: String,
         isCompleted: Bool = false,
+        sortOrder: Int = 0,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
@@ -20,6 +22,7 @@ struct FutureTaskItem: Identifiable, Codable, Equatable, Sendable {
         self.title = title
         self.note = note
         self.isCompleted = isCompleted
+        self.sortOrder = sortOrder
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -30,6 +33,7 @@ struct FutureTaskItem: Identifiable, Codable, Equatable, Sendable {
         case note
         case prompt
         case isCompleted
+        case sortOrder
         case createdAt
         case updatedAt
         case scheduledAt
@@ -43,6 +47,7 @@ struct FutureTaskItem: Identifiable, Codable, Equatable, Sendable {
             ?? container.decodeIfPresent(String.self, forKey: .prompt)
             ?? ""
         isCompleted = try container.decodeIfPresent(Bool.self, forKey: .isCompleted) ?? false
+        sortOrder = try container.decodeIfPresent(Int.self, forKey: .sortOrder) ?? 0
         createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
         updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt)
             ?? container.decodeIfPresent(Date.self, forKey: .scheduledAt)
@@ -55,6 +60,7 @@ struct FutureTaskItem: Identifiable, Codable, Equatable, Sendable {
         try container.encode(title, forKey: .title)
         try container.encode(note, forKey: .note)
         try container.encode(isCompleted, forKey: .isCompleted)
+        try container.encode(sortOrder, forKey: .sortOrder)
         try container.encode(createdAt, forKey: .createdAt)
         try container.encode(updatedAt, forKey: .updatedAt)
     }

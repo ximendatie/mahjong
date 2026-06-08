@@ -235,7 +235,7 @@ struct CodexLocalProvider: AgentTaskProvider {
                 let rateLimits = payload["rate_limits"] as? [String: Any],
                 let summary = codexUsageLimitSummary(from: rateLimits, timestamp: parseDate(object["timestamp"] as? String))
             else {
-                return
+                continue
             }
 
             let id = summary.limitID ?? "unknown"

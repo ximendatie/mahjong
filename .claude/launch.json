@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Mahjong (build & run)",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["script/build_and_run.sh"],
+      "port": null
+    }
+  ]
+}

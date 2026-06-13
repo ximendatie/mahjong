@@ -4,6 +4,7 @@
 
 ![mahjong visual showcase](docs/assets/showcase.png)
 
+[Watch the 52-second product walkthrough](docs/assets/mahjong-intro.mp4) ·
 [Open the visual showcase](docs/showcase.html) ·
 [Download a release](https://github.com/ximendatie/mahjong/releases) ·
 [Launch playbook](docs/launch.md)

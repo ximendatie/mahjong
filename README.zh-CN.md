@@ -2,6 +2,7 @@
 
 ![mahjong 可视化展示](docs/assets/showcase.png)
 
+[观看 52 秒产品介绍视频](docs/assets/mahjong-intro.mp4) ·
 [打开可视化展示页](docs/showcase.html) ·
 [下载 Release](https://github.com/ximendatie/mahjong/releases) ·
 [发布传播手册](docs/launch.md)

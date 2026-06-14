@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, height=1080">
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      @font-face {
+        font-family: "MahjongUI";
+        src: local("PingFang SC"), local("PingFangSC-Regular");
+        font-weight: 300 900;
+      }
+      @font-face {
+        font-family: "MahjongStatement";
+        src: local("Songti SC"), local("STSong");
+        font-weight: 300 900;
+      }
+      html,
+      body {
+        margin: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #f4efe5;
+      }
+      body {
+        font-family: "MahjongUI", sans-serif;
+        color: #151712;
+      }
+      #root {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #f4efe5;
+      }
+      .scene {
+        position: absolute;
+        inset: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background-color: #f4efe5;
+      }
+      #scene1 {
+        z-index: 1;
+      }
+      #scene2 {
+        z-index: 2;
+        opacity: 0;
+      }
+      #scene3 {
+        z-index: 3;
+        opacity: 0;
+      }
+      #scene4 {
+        z-index: 4;
+        opacity: 0;
+      }
+      #scene5 {
+        z-index: 5;
+        opacity: 0;
+      }
+      #scene6 {
+        z-index: 6;
+        opacity: 0;
+      }
+      .grid {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        background-image:
+          linear-gradient(rgba(21, 23, 18, 0.064) 1px, rgba(244, 239, 229, 0) 1px),
+          linear-gradient(90deg, rgba(21, 23, 18, 0.064) 1px, rgba(244, 239, 229, 0) 1px);
+        background-size: 64px 64px;
+      }
+      .soft-glow {
+        position: absolute;
+        z-index: 1;
+        border-radius: 50%;
+        filter: blur(24px);
+        opacity: 0.48;
+      }
+      .glow-red {
+        width: 620px;
+        height: 620px;
+        background: rgba(217, 66, 56, 0.13);
+      }
+      .glow-teal {
+        width: 720px;
+        height: 720px;
+        background: rgba(15, 154, 129, 0.16);
+      }
+      .scene-content {
+        position: relative;
+        z-index: 3;
+        width: 100%;
+        height: 100%;
+        padding: 96px 132px;
+        display: flex;
+        flex-direction: column;
+        gap: 28px;
+      }
+      .topbar {
+        position: absolute;
+        top: 54px;
+        left: 132px;
+        right: 132px;
+        z-index: 8;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 54px;
+        color: rgba(21, 23, 18, 0.64);
+        font-size: 18px;
+        font-weight: 800;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        color: #151712;
+        font-size: 22px;
+        font-weight: 900;
+      }
+      .brand img {
+        width: 42px;
+        height: 42px;
+      }
+      .steps {
+        display: flex;
+        gap: 34px;
+        font-family: "IBM Plex Mono", "JetBrains Mono", monospace;
+      }
+      .eyebrow {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        font-family: "IBM Plex Mono", "JetBrains Mono", monospace;
+        font-size: 22px;
+        font-weight: 800;
+        color: #0f9a81;
+      }
+      .eyebrow::before {
+        content: "";
+        width: 42px;
+        height: 4px;
+        border-radius: 999px;
+        background: #0f9a81;
+      }
+      .display {
+        font-family: "MahjongStatement", serif;
+        font-weight: 900;
+        line-height: 0.95;
+        letter-spacing: 0;
+        color: #151712;
+      }
+      .body-copy {
+        max-width: 790px;
+        color: #555e53;
+        font-size: 34px;
+        font-weight: 500;
+        line-height: 1.5;
+      }
+      .mono {
+        font-family: "IBM Plex Mono", "JetBrains Mono", monospace;
+        font-variant-numeric: tabular-nums;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 54px;
+        padding: 0 22px;
+        border: 1px solid rgba(21, 23, 18, 0.14);
+        border-radius: 999px;
+        background: rgba(255, 253, 247, 0.76);
+        color: #151712;
+        box-shadow: 0 14px 34px rgba(21, 23, 18, 0.08);
+        font-size: 21px;
+        font-weight: 800;
+      }
+      .pill.dark {
+        border-color: #09251f;
+        background: #09251f;
+        color: #fffdf7;
+      }
+      .status-dot {
+        width: 14px;
+        height: 14px;
+        margin-right: 10px;
+        border-radius: 50%;
+        background: #0f9a81;
+        box-shadow: 0 0 0 7px rgba(15, 154, 129, 0.14);
+      }
+      .cursor {
+        position: absolute;
+        z-index: 30;
+        width: 0;
+        height: 0;
+        border-top: 24px solid #151712;
+        border-right: 14px solid rgba(21, 23, 18, 0);
+        border-left: 7px solid rgba(21, 23, 18, 0);
+        transform: rotate(-22deg);
+        filter: drop-shadow(0 8px 10px rgba(21, 23, 18, 0.18));
+      }
+      .click-ring {
+        position: absolute;
+        z-index: 24;
+        width: 86px;
+        height: 86px;
+        border: 3px solid rgba(15, 154, 129, 0.45);
+        border-radius: 50%;
+        opacity: 0;
+      }
+      .mac-window {
+        border: 1px solid rgba(21, 23, 18, 0.16);
+        border-radius: 12px;
+        background: rgba(255, 253, 247, 0.78);
+        box-shadow: 0 28px 68px rgba(21, 23, 18, 0.13);
+        overflow: hidden;
+      }
+      .window-bar {
+        height: 64px;
+        border-bottom: 1px solid rgba(21, 23, 18, 0.12);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 24px;
+        background: rgba(255, 253, 247, 0.86);
+        font-size: 20px;
+        font-weight: 900;
+      }
+      .traffic {
+        display: flex;
+        gap: 10px;
+      }
+      .traffic span {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+      }
+      .traffic span:nth-child(1) {
+        background: #e5574f;
+      }
+      .traffic span:nth-child(2) {
+        background: #d6b844;
+      }
+      .traffic span:nth-child(3) {
+        background: #47ad85;
+      }
+      .terminal {
+        padding: 28px 32px;
+        background: #fffdf7;
+        color: #09251f;
+        font-family: "IBM Plex Mono", "JetBrains Mono", monospace;
+        font-size: 24px;
+        line-height: 1.72;
+      }
+      .terminal .muted {
+        color: #555e53;
+      }
+      .terminal .accent {
+        color: #0b6657;
+      }
+      .install-layout {
+        height: 100%;
+        display: grid;
+        grid-template-columns: 690px 1fr;
+        align-items: center;
+        gap: 86px;
+        padding-top: 38px;
+      }
+      .install-title {
+        max-width: 760px;
+        font-size: 126px;
+      }
+      .install-visual {
+        position: relative;
+        min-height: 670px;
+      }
+      .terminal-card {
+        position: absolute;
+        left: 0;
+        top: 86px;
+        width: 720px;
+      }
+      .pet-launch {
+        position: absolute;
+        right: 30px;
+        bottom: 48px;
+        width: 318px;
+        height: 360px;
+      }
+      .tile-card {
+        position: absolute;
+        width: 210px;
+        height: 262px;
+        border: 3px solid rgba(21, 23, 18, 0.14);
+        border-radius: 26px;
+        background: #fff8e7;
+        box-shadow: 24px 30px 38px rgba(9, 37, 31, 0.2);
+      }
+      .tile-card.back-a {
+        left: 88px;
+        top: 70px;
+        transform: rotate(8deg);
+        background: #e6c85d;
+      }
+      .tile-card.back-b {
+        left: 20px;
+        top: 102px;
+        transform: rotate(-10deg);
+        background: #5fb09e;
+      }
+      .tile-card.main {
+        left: 62px;
+        top: 30px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        transform: rotate(4deg);
+      }
+      .tile-symbol {
+        position: relative;
+        width: 56px;
+        height: 56px;
+        border: 10px solid #0f9a81;
+        border-radius: 50%;
+      }
+      .tile-symbol::after {
+        content: "";
+        position: absolute;
+        inset: 8px;
+        border: 7px solid #d94238;
+        border-radius: 50%;
+      }
+      .tile-symbol.blue {
+        border-color: #2d6071;
+      }
+      .tile-symbol.red {
+        border-color: #d94238;
+      }
+      .desktop-layout {
+        height: 100%;
+        display: grid;
+        grid-template-columns: 520px 1fr;
+        align-items: center;
+        gap: 72px;
+        padding-top: 38px;
+      }
+      .desktop-title {
+        font-size: 104px;
+      }
+      .desktop {
+        position: relative;
+        height: 710px;
+        border: 1px solid rgba(21, 23, 18, 0.16);
+        border-radius: 18px;
+        background: rgba(255, 253, 247, 0.48);
+        box-shadow: 0 28px 68px rgba(21, 23, 18, 0.1);
+        overflow: hidden;
+      }
+      .agent-window {
+        position: absolute;
+        width: 440px;
+        border: 1px solid rgba(21, 23, 18, 0.13);
+        border-radius: 10px;
+        background: rgba(255, 253, 247, 0.9);
+        box-shadow: 0 18px 42px rgba(21, 23, 18, 0.1);
+      }
+      .agent-window.codex {
+        left: 72px;
+        top: 74px;
+      }
+      .agent-window.claude {
+        right: 92px;
+        top: 142px;
+      }
+      .agent-window.chatgpt {
+        left: 260px;
+        bottom: 82px;
+      }
+      .agent-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 18px 20px;
+        border-bottom: 1px solid rgba(21, 23, 18, 0.1);
+        font-size: 20px;
+        font-weight: 900;
+      }
+      .agent-body {
+        padding: 18px 20px 24px;
+      }
+      .task-line {
+        height: 14px;
+        margin: 14px 0;
+        border-radius: 999px;
+        background: rgba(21, 23, 18, 0.13);
+      }
+      .task-line.short {
+        width: 68%;
+      }
+      .task-line.mid {
+        width: 86%;
+      }
+      .progress-track {
+        height: 8px;
+        margin-top: 20px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: rgba(15, 154, 129, 0.14);
+      }
+      .progress-fill {
+        width: 62%;
+        height: 100%;
+        border-radius: 999px;
+        background: #0f9a81;
+      }
+      .pet-float {
+        position: absolute;
+        right: 42px;
+        bottom: 42px;
+        width: 172px;
+        height: 210px;
+      }
+      .pet-float .tile-card {
+        width: 112px;
+        height: 142px;
+        border-radius: 18px;
+        box-shadow: 10px 16px 24px rgba(9, 37, 31, 0.2);
+      }
+      .pet-float .tile-card.back-a {
+        left: 48px;
+        top: 40px;
+      }
+      .pet-float .tile-card.back-b {
+        left: 16px;
+        top: 58px;
+      }
+      .pet-float .tile-card.main {
+        left: 30px;
+        top: 18px;
+        gap: 7px;
+      }
+      .pet-float .tile-symbol {
+        width: 28px;
+        height: 28px;
+        border-width: 5px;
+      }
+      .pet-float .tile-symbol::after {
+        inset: 4px;
+        border-width: 4px;
+      }
+      .running-badge {
+        position: absolute;
+        z-index: 8;
+        right: 0;
+        bottom: 16px;
+        display: flex;
+        align-items: center;
+        height: 48px;
+        padding: 0 18px;
+        border: 1px solid rgba(21, 23, 18, 0.14);
+        border-radius: 999px;
+        background: rgba(255, 253, 247, 0.92);
+        box-shadow: 0 18px 30px rgba(21, 23, 18, 0.12);
+        font-family: "IBM Plex Mono", "JetBrains Mono", monospace;
+        font-size: 18px;
+        font-weight: 900;
+      }
+      .detect-layout {
+        height: 100%;
+        display: grid;
+        grid-template-columns: 620px 1fr;
+        align-items: center;
+        gap: 72px;
+        padding-top: 38px;
+      }
+      .detect-title {
+        font-size: 108px;
+      }
+      .observer-panel {
+        position: relative;
+        min-height: 650px;
+        border: 1px solid rgba(21, 23, 18, 0.16);
+        border-radius: 14px;
+        background: rgba(255, 253, 247, 0.66);
+        box-shadow: 0 24px 60px rgba(21, 23, 18, 0.1);
+        overflow: hidden;
+      }
+      .scan-bar {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 118px;
+        height: 3px;
+        background: #0f9a81;
+        box-shadow: 0 0 30px rgba(15, 154, 129, 0.54);
+      }
+      .source-list {
+        position: absolute;
+        left: 52px;
+        top: 72px;
+        width: 470px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+      .source-card {
+        padding: 22px 24px;
+        border: 1px solid rgba(21, 23, 18, 0.14);
+        border-radius: 9px;
+        background: #fffdf7;
+        box-shadow: 0 14px 30px rgba(21, 23, 18, 0.08);
+      }
+      .source-card h3 {
+        font-family: "IBM Plex Mono", "JetBrains Mono", monospace;
+        font-size: 22px;
+        margin-bottom: 10px;
+      }
+      .source-card p {
+        color: #555e53;
+        font-size: 19px;
+        line-height: 1.38;
+      }
+      .output-status {
+        position: absolute;
+        right: 56px;
+        top: 124px;
+        width: 470px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+      .status-card {
+        display: grid;
+        grid-template-columns: 58px 1fr 98px;
+        align-items: center;
+        gap: 18px;
+        padding: 22px;
+        border: 1px solid rgba(21, 23, 18, 0.14);
+        border-radius: 9px;
+        background: #fffdf7;
+        box-shadow: 0 14px 30px rgba(21, 23, 18, 0.08);
+      }
+      .status-icon {
+        width: 46px;
+        height: 46px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        border: 2px solid rgba(9, 37, 31, 0.2);
+        background: #fffdf7;
+        color: #09251f;
+        font-weight: 900;
+      }
+      .status-card h3 {
+        font-size: 24px;
+        line-height: 1.2;
+      }
+      .status-card p {
+        margin-top: 6px;
+        color: #555e53;
+        font-size: 18px;
+      }
+      .status-card em {
+        justify-self: end;
+        color: #09251f;
+        font-style: normal;
+        font-family: "IBM Plex Mono", "JetBrains Mono", monospace;
+        font-size: 18px;
+        font-weight: 900;
+      }
+      .board-layout {
+        height: 100%;
+        display: grid;
+        grid-template-columns: 500px 1fr;
+        align-items: center;
+        gap: 74px;
+        padding-top: 38px;
+      }
+      .board-title {
+        font-size: 104px;
+      }
+      .board-window {
+        min-height: 670px;
+      }
+      .board-shell {
+        display: grid;
+        grid-template-columns: 156px 1fr 1fr 1fr;
+        min-height: 604px;
+      }
+      .sidebar {
+        border-right: 1px solid rgba(21, 23, 18, 0.12);
+        background: rgba(15, 154, 129, 0.08);
+        padding: 28px 18px;
+      }
+      .side-item {
+        padding: 16px 18px;
+        margin-bottom: 12px;
+        border-radius: 8px;
+        color: #555e53;
+        font-size: 20px;
+        font-weight: 900;
+      }
+      .side-item.active {
+        background: rgba(15, 154, 129, 0.17);
+        color: #151712;
+      }
+      .column {
+        padding: 28px 24px;
+        border-right: 1px solid rgba(21, 23, 18, 0.1);
+      }
+      .column:last-child {
+        border-right: 0;
+      }
+      .column h3 {
+        margin-bottom: 22px;
+        color: #555e53;
+        font-size: 22px;
+      }
+      .task-card {
+        padding: 22px 20px;
+        border: 1px solid rgba(21, 23, 18, 0.12);
+        border-radius: 9px;
+        background: #fffdf7;
+        box-shadow: 0 14px 28px rgba(21, 23, 18, 0.08);
+        margin-bottom: 18px;
+      }
+      .task-card strong {
+        display: block;
+        font-size: 22px;
+        line-height: 1.25;
+        margin-bottom: 14px;
+      }
+      .task-meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        color: #555e53;
+        font-family: "IBM Plex Mono", "JetBrains Mono", monospace;
+        font-size: 17px;
+      }
+      .settings-layout {
+        height: 100%;
+        display: grid;
+        grid-template-columns: 560px 1fr;
+        align-items: center;
+        gap: 82px;
+        padding-top: 38px;
+      }
+      .settings-title {
+        font-size: 104px;
+      }
+      .settings-panel {
+        min-height: 660px;
+        padding: 36px;
+      }
+      .settings-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 22px;
+      }
+      .setting-card {
+        min-height: 168px;
+        padding: 26px;
+        border: 1px solid rgba(21, 23, 18, 0.14);
+        border-radius: 9px;
+        background: #fffdf7;
+        box-shadow: 0 14px 28px rgba(21, 23, 18, 0.08);
+      }
+      .setting-card h3 {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 18px;
+        font-size: 25px;
+      }
+      .setting-card p {
+        color: #555e53;
+        font-size: 19px;
+        line-height: 1.4;
+      }
+      .toggle {
+        position: relative;
+        width: 66px;
+        height: 36px;
+        border-radius: 999px;
+        background: rgba(15, 154, 129, 0.22);
+      }
+      .toggle::after {
+        content: "";
+        position: absolute;
+        right: 5px;
+        top: 5px;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: #0f9a81;
+      }
+      .diagnostic {
+        margin-top: 24px;
+        padding: 24px 26px;
+        border-left: 6px solid #0f9a81;
+        background: rgba(15, 154, 129, 0.09);
+        border-radius: 9px;
+      }
+      .diagnostic h3 {
+        font-size: 25px;
+        margin-bottom: 10px;
+      }
+      .diagnostic p {
+        color: #555e53;
+        font-size: 20px;
+      }
+      .daily-layout {
+        height: 100%;
+        display: grid;
+        grid-template-columns: 1fr 560px;
+        align-items: center;
+        gap: 86px;
+        padding-top: 38px;
+      }
+      .daily-title {
+        max-width: 890px;
+        font-size: 118px;
+      }
+      .daily-desktop {
+        position: relative;
+        height: 650px;
+        border: 1px solid rgba(21, 23, 18, 0.16);
+        border-radius: 18px;
+        background: rgba(255, 253, 247, 0.48);
+        box-shadow: 0 28px 68px rgba(21, 23, 18, 0.1);
+        overflow: hidden;
+      }
+      .menu-bar {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 0;
+        height: 54px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 24px;
+        border-bottom: 1px solid rgba(21, 23, 18, 0.12);
+        background: rgba(255, 253, 247, 0.84);
+        font-size: 18px;
+        font-weight: 800;
+      }
+      .work-area {
+        position: absolute;
+        left: 44px;
+        top: 98px;
+        width: 470px;
+        height: 410px;
+        border: 1px solid rgba(21, 23, 18, 0.12);
+        border-radius: 10px;
+        background: #fffdf7;
+        padding: 30px;
+      }
+      .work-area h3 {
+        font-size: 28px;
+        margin-bottom: 24px;
+      }
+      .work-line {
+        height: 16px;
+        margin: 18px 0;
+        border-radius: 999px;
+        background: rgba(21, 23, 18, 0.13);
+      }
+      .mini-menu {
+        position: absolute;
+        right: 52px;
+        top: 88px;
+        width: 306px;
+        padding: 22px;
+        border: 1px solid rgba(21, 23, 18, 0.14);
+        border-radius: 12px;
+        background: #fffdf7;
+        box-shadow: 0 24px 44px rgba(21, 23, 18, 0.13);
+      }
+      .mini-menu h3 {
+        display: flex;
+        align-items: center;
+        font-size: 24px;
+        margin-bottom: 18px;
+      }
+      .mini-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 13px 0;
+        border-top: 1px solid rgba(21, 23, 18, 0.1);
+        color: #555e53;
+        font-size: 19px;
+      }
+      .url {
+        margin-top: 34px;
+        font-family: "IBM Plex Mono", "JetBrains Mono", monospace;
+        font-size: 31px;
+        color: #09251f;
+        font-weight: 900;
+      }
+      .fadeout {
+        position: absolute;
+        inset: 0;
+        z-index: 50;
+        background: #09251f;
+        opacity: 0;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div data-hf-id="hf-xn63" id="root" data-composition-id="main" data-start="0" data-duration="52" data-width="1920" data-height="1080">
+      <div data-hf-id="hf-zet7" id="scene1" class="scene">
+        <div data-hf-id="hf-kxq8" class="grid"></div>
+        <div data-hf-id="hf-4ij9" class="soft-glow glow-red" style="right: 160px; top: 120px"></div>
+        <div data-hf-id="hf-ko29" class="soft-glow glow-teal" style="right: 120px; bottom: 40px"></div>
+        <div data-hf-id="hf-mndw" class="topbar">
+          <div data-hf-id="hf-f9kn" class="brand"><img data-hf-id="hf-6xi5" src="assets/mahjongIcon.svg" alt="">mahjong</div>
+          <div data-hf-id="hf-70xd" class="steps"><span data-hf-id="hf-fo3x">打开</span><span data-hf-id="hf-wjru">观察</span><span data-hf-id="hf-zkhl">常驻</span></div>
+        </div>
+        <div data-hf-id="hf-pngk" class="scene-content install-layout">
+          <div data-hf-id="hf-yeow">
+            <div data-hf-id="hf-32uj" class="eyebrow s1-eyebrow">使用过程 01</div>
+            <h1 data-hf-id="hf-b13f" class="display install-title s1-title">先把状态伴侣放到桌面上</h1>
+            <p data-hf-id="hf-l97m" class="body-copy s1-copy">打开 mahjong 后，麻将牌桌宠会留在桌面角落。它不会打断你，只负责把本机 AI 助手状态变得可见。</p>
+            <div data-hf-id="hf-ivt3" class="pill s1-pill dark"><span data-hf-id="hf-i0ip" class="status-dot"></span>本地观察 · 只读</div>
+          </div>
+          <div data-hf-id="hf-8txm" class="install-visual">
+            <div data-hf-id="hf-dkok" class="mac-window terminal-card s1-terminal">
+              <div data-hf-id="hf-85t8" class="window-bar"><div data-hf-id="hf-v7ob" class="traffic"><span data-hf-id="hf-uckh"></span><span data-hf-id="hf-l73p"></span><span data-hf-id="hf-me0s"></span></div><span data-hf-id="hf-dfp1">打开 mahjong</span><span data-hf-id="hf-5us6" class="mono">桌宠就绪</span></div>
+              <div data-hf-id="hf-1ms0" class="terminal">
+                <div data-hf-id="hf-8ywh"><span data-hf-id="hf-k8e2" class="muted">1</span> 打开应用</div>
+                <div data-hf-id="hf-fn91" class="muted">2 桌宠停在桌面角落</div>
+                <div data-hf-id="hf-5gvf" class="accent">3 开始观察本机助手状态</div>
+                <div data-hf-id="hf-o4gy" class="muted">4 需要时点开看板</div>
+              </div>
+            </div>
+            <div data-hf-id="hf-ali7" class="pet-launch s1-pet">
+              <div data-hf-id="hf-370m" class="tile-card back-a"></div>
+              <div data-hf-id="hf-z8wl" class="tile-card back-b"></div>
+              <div data-hf-id="hf-d01u" class="tile-card main"><div data-hf-id="hf-g6g3" class="tile-symbol blue"></div><div data-hf-id="hf-xtcw" class="tile-symbol red"></div><div data-hf-id="hf-19q9" class="tile-symbol"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div data-hf-id="hf-qqxc" id="scene2" class="scene">
+        <div data-hf-id="hf-6qwo" class="grid"></div>
+        <div data-hf-id="hf-ose3" class="soft-glow glow-teal" style="left: 780px; top: 90px"></div>
+        <div data-hf-id="hf-le1j" class="scene-content desktop-layout">
+          <div data-hf-id="hf-y7yw">
+            <div data-hf-id="hf-ghqn" class="eyebrow s2-eyebrow">使用过程 02</div>
+            <h2 data-hf-id="hf-v9ax" class="display desktop-title s2-title">然后照常使用你的 AI 助手</h2>
+            <p data-hf-id="hf-g5di" class="body-copy s2-copy">不需要切换工作方式。多个助手继续各自处理任务，mahjong 在旁边把“谁还在忙”汇总成一个桌面信号。</p>
+          </div>
+          <div data-hf-id="hf-tdpg" class="desktop s2-desktop">
+            <div data-hf-id="hf-qu3h" class="agent-window codex s2-window">
+              <div data-hf-id="hf-dqua" class="agent-head"><span data-hf-id="hf-1vio">任务整理</span><span data-hf-id="hf-l0en" class="mono">进行中</span></div>
+              <div data-hf-id="hf-5amg" class="agent-body"><div data-hf-id="hf-p4h0" class="task-line mid"></div><div data-hf-id="hf-7yiu" class="task-line"></div><div data-hf-id="hf-jz3k" class="task-line short"></div><div data-hf-id="hf-lxwj" class="progress-track"><div data-hf-id="hf-b9gd" class="progress-fill"></div></div></div>
+            </div>
+            <div data-hf-id="hf-efim" class="agent-window claude s2-window">
+              <div data-hf-id="hf-aqyu" class="agent-head"><span data-hf-id="hf-fncj">文档润色</span><span data-hf-id="hf-yvgw" class="mono">思考中</span></div>
+              <div data-hf-id="hf-psao" class="agent-body"><div data-hf-id="hf-uidm" class="task-line"></div><div data-hf-id="hf-9op4" class="task-line short"></div><div data-hf-id="hf-h864" class="task-line mid"></div><div data-hf-id="hf-drz7" class="progress-track"><div data-hf-id="hf-a2rc" class="progress-fill" style="width: 44%"></div></div></div>
+            </div>
+            <div data-hf-id="hf-oprh" class="agent-window chatgpt s2-window">
+              <div data-hf-id="hf-b59v" class="agent-head"><span data-hf-id="hf-1ghg">问题排查</span><span data-hf-id="hf-le56" class="mono">活跃</span></div>
+              <div data-hf-id="hf-oldl" class="agent-body"><div data-hf-id="hf-8hs1" class="task-line short"></div><div data-hf-id="hf-uwon" class="task-line"></div><div data-hf-id="hf-g191" class="task-line mid"></div><div data-hf-id="hf-ddo6" class="progress-track"><div data-hf-id="hf-vaj3" class="progress-fill" style="width: 78%"></div></div></div>
+            </div>
+            <div data-hf-id="hf-0sv9" class="pet-float s2-pet">
+              <div data-hf-id="hf-c096" class="tile-card back-a"></div>
+              <div data-hf-id="hf-q8ll" class="tile-card back-b"></div>
+              <div data-hf-id="hf-ek86" class="tile-card main"><div data-hf-id="hf-u277" class="tile-symbol blue"></div><div data-hf-id="hf-3f88" class="tile-symbol red"></div><div data-hf-id="hf-qk5x" class="tile-symbol"></div></div>
+              <div data-hf-id="hf-ys8b" class="running-badge"><span data-hf-id="hf-5et1" class="status-dot"></span>3 个进行中</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div data-hf-id="hf-ril5" id="scene3" class="scene">
+        <div data-hf-id="hf-5jzl" class="grid"></div>
+        <div data-hf-id="hf-m2rg" class="soft-glow glow-red" style="left: 630px; top: 120px"></div>
+        <div data-hf-id="hf-w95s" class="scene-content detect-layout">
+          <div data-hf-id="hf-x11t">
+            <div data-hf-id="hf-4f6b" class="eyebrow s3-eyebrow">使用过程 03</div>
+            <h2 data-hf-id="hf-lkve" class="display detect-title s3-title">它把分散动静收束成状态</h2>
+            <p data-hf-id="hf-ki5s" class="body-copy s3-copy">不用理解底层来源。你只看到哪些助手正在忙、哪些任务完成了、哪些需要稍后处理。</p>
+          </div>
+          <div data-hf-id="hf-gyqq" class="observer-panel s3-panel">
+            <div data-hf-id="hf-m1qj" class="scan-bar"></div>
+            <div data-hf-id="hf-7ip4" class="source-list">
+              <div data-hf-id="hf-b9py" class="source-card s3-source"><h3 data-hf-id="hf-dke6">正在运行</h3><p data-hf-id="hf-sxzi">哪些助手还在处理任务。</p></div>
+              <div data-hf-id="hf-53kq" class="source-card s3-source"><h3 data-hf-id="hf-bl5w">刚刚完成</h3><p data-hf-id="hf-ckxa">哪些结果已经可以查看。</p></div>
+              <div data-hf-id="hf-5hvr" class="source-card s3-source"><h3 data-hf-id="hf-eq8i">需要关注</h3><p data-hf-id="hf-ue0a">哪些任务暂停或等待你处理。</p></div>
+              <div data-hf-id="hf-5w6s" class="source-card s3-source"><h3 data-hf-id="hf-mdgf">隐私边界</h3><p data-hf-id="hf-3866">只展示状态，不展开完整内容。</p></div>
+            </div>
+            <div data-hf-id="hf-88nq" class="output-status">
+              <div data-hf-id="hf-swtg" class="status-card s3-status"><div data-hf-id="hf-15qr" class="status-icon">1</div><div data-hf-id="hf-xfcu"><h3 data-hf-id="hf-xtzl">整理待办清单</h3><p data-hf-id="hf-ef54">助手还在处理，桌宠保持提醒。</p></div><em data-hf-id="hf-y7n4">进行中</em></div>
+              <div data-hf-id="hf-nu8s" class="status-card s3-status"><div data-hf-id="hf-0rfq" class="status-icon">2</div><div data-hf-id="hf-w8fr"><h3 data-hf-id="hf-9zp4">更新说明已完成</h3><p data-hf-id="hf-dg11">结果已经可以回到看板查看。</p></div><em data-hf-id="hf-y5ab">完成</em></div>
+              <div data-hf-id="hf-mnbp" class="status-card s3-status"><div data-hf-id="hf-0d4p" class="status-icon">3</div><div data-hf-id="hf-wmqs"><h3 data-hf-id="hf-0yjv">桌面任务等待确认</h3><p data-hf-id="hf-bwy8">只提示状态，不替你操作其他应用。</p></div><em data-hf-id="hf-wdc7">暂停</em></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div data-hf-id="hf-gn3i" id="scene4" class="scene">
+        <div data-hf-id="hf-5yam" class="grid"></div>
+        <div data-hf-id="hf-sdbe" class="soft-glow glow-teal" style="right: 180px; top: 120px"></div>
+        <div data-hf-id="hf-48n3" class="scene-content board-layout">
+          <div data-hf-id="hf-vftp">
+            <div data-hf-id="hf-0b9b" class="eyebrow s4-eyebrow">使用过程 04</div>
+            <h2 data-hf-id="hf-z83d" class="display board-title s4-title">点击桌宠，打开看板</h2>
+            <p data-hf-id="hf-d5n3" class="body-copy s4-copy">当你想看细节，只要点一下麻将牌。运行中、已完成、已中断的任务会按状态落到看板里。</p>
+          </div>
+          <div data-hf-id="hf-03in" class="mac-window board-window s4-board">
+            <div data-hf-id="hf-ws90" class="window-bar"><div data-hf-id="hf-y5sr" class="traffic"><span data-hf-id="hf-lzpr"></span><span data-hf-id="hf-n6mu"></span><span data-hf-id="hf-msbt"></span></div><span data-hf-id="hf-wx91">mahjong 状态看板</span><span data-hf-id="hf-lngu" class="pill"><span data-hf-id="hf-anp8" class="status-dot"></span>3 个进行中</span></div>
+            <div data-hf-id="hf-c2mh" class="board-shell">
+              <div data-hf-id="hf-96rw" class="sidebar"><div data-hf-id="hf-7nja" class="side-item active">任务</div><div data-hf-id="hf-rp49" class="side-item">助手</div><div data-hf-id="hf-cmsp" class="side-item">稍后处理</div><div data-hf-id="hf-62gr" class="side-item">设置</div></div>
+              <div data-hf-id="hf-84me" class="column"><h3 data-hf-id="hf-2woq">进行中</h3><div data-hf-id="hf-sv1e" class="task-card s4-card"><strong data-hf-id="hf-0hsv">整理待办清单</strong><div data-hf-id="hf-9173" class="task-meta"><span data-hf-id="hf-e4c0">任务助手</span><span data-hf-id="hf-ok8f">正在处理</span></div></div><div data-hf-id="hf-u22u" class="task-card s4-card"><strong data-hf-id="hf-om6n">生成发布说明草稿</strong><div data-hf-id="hf-3ddb" class="task-meta"><span data-hf-id="hf-ozkj">文档助手</span><span data-hf-id="hf-244o">进行中</span></div></div></div>
+              <div data-hf-id="hf-aaju" class="column"><h3 data-hf-id="hf-hqdq">已完成</h3><div data-hf-id="hf-ugdv" class="task-card s4-card"><strong data-hf-id="hf-zyaq">更新说明已完成</strong><div data-hf-id="hf-2z2a" class="task-meta"><span data-hf-id="hf-73ke">文档任务</span><span data-hf-id="hf-rhpm">今天</span></div></div></div>
+              <div data-hf-id="hf-aouv" class="column"><h3 data-hf-id="hf-ueog">需要关注</h3><div data-hf-id="hf-uuow" class="task-card s4-card"><strong data-hf-id="hf-8ud5">等待你的确认</strong><div data-hf-id="hf-2kr9" class="task-meta"><span data-hf-id="hf-k9ev">桌面任务</span><span data-hf-id="hf-vpov">暂停</span></div></div></div>
+            </div>
+          </div>
+          <div data-hf-id="hf-uuyy" class="cursor s4-cursor"></div>
+          <div data-hf-id="hf-kijb" class="click-ring s4-click"></div>
+        </div>
+      </div>
+
+      <div data-hf-id="hf-kl7j" id="scene5" class="scene">
+        <div data-hf-id="hf-4rdj" class="grid"></div>
+        <div data-hf-id="hf-60ee" class="soft-glow glow-red" style="left: 620px; bottom: 80px"></div>
+        <div data-hf-id="hf-biuy" class="scene-content settings-layout">
+          <div data-hf-id="hf-vu4q">
+            <div data-hf-id="hf-b0jf" class="eyebrow s5-eyebrow">使用过程 05</div>
+            <h2 data-hf-id="hf-a10y" class="display settings-title s5-title">选择 mahjong 可以观察什么</h2>
+            <p data-hf-id="hf-59h9" class="body-copy s5-copy">你可以打开或关闭不同来源，也可以开启隐私模式。mahjong 只保留状态提醒，不展示不需要暴露的细节。</p>
+          </div>
+          <div data-hf-id="hf-9z25" class="mac-window settings-panel s5-panel">
+            <div data-hf-id="hf-xojc" class="settings-grid">
+              <div data-hf-id="hf-jh9u" class="setting-card s5-setting"><h3 data-hf-id="hf-zmh7">终端助手 <span data-hf-id="hf-izux" class="toggle"></span></h3><p data-hf-id="hf-vgpr">显示是否有任务仍在运行。</p></div>
+              <div data-hf-id="hf-9pfa" class="setting-card s5-setting"><h3 data-hf-id="hf-wfzy">桌面助手 <span data-hf-id="hf-p6gt" class="toggle"></span></h3><p data-hf-id="hf-7cek">显示桌面应用是否还在工作。</p></div>
+              <div data-hf-id="hf-a3qb" class="setting-card s5-setting"><h3 data-hf-id="hf-8uq3">完成提醒 <span data-hf-id="hf-qddw" class="toggle"></span></h3><p data-hf-id="hf-ce2g">任务结束后在看板里留下结果状态。</p></div>
+              <div data-hf-id="hf-ai1c" class="setting-card s5-setting"><h3 data-hf-id="hf-vhaf">隐私模式 <span data-hf-id="hf-pz2v" class="toggle"></span></h3><p data-hf-id="hf-9y8d">收起标题和细节，只保留状态。</p></div>
+            </div>
+            <div data-hf-id="hf-aofp" class="diagnostic s5-diagnostic"><h3 data-hf-id="hf-kci0">清楚的边界</h3><p data-hf-id="hf-fc52">只读观察，不上传内容，不替你控制其他应用。</p></div>
+          </div>
+        </div>
+      </div>
+
+      <div data-hf-id="hf-bxbo" id="scene6" class="scene">
+        <div data-hf-id="hf-55ok" class="grid"></div>
+        <div data-hf-id="hf-gogu" class="soft-glow glow-teal" style="right: 120px; bottom: 50px"></div>
+        <div data-hf-id="hf-g2ef" class="soft-glow glow-red" style="left: 260px; top: 120px"></div>
+        <div data-hf-id="hf-cfqm" class="scene-content daily-layout">
+          <div data-hf-id="hf-1043">
+            <div data-hf-id="hf-lizr" class="eyebrow s6-eyebrow">使用过程 06</div>
+            <h2 data-hf-id="hf-j5kw" class="display daily-title s6-title">最后回到工作，只保留一个安静信号</h2>
+            <p data-hf-id="hf-bxdh" class="body-copy s6-copy">看板可以关掉，桌宠和菜单栏继续常驻。你不用盯着每个窗口，也能知道本机助手是否还在推进。</p>
+            <div data-hf-id="hf-t2zi" class="url s6-url">mahjong：本地 AI 助手状态伴侣</div>
+          </div>
+          <div data-hf-id="hf-kndo" class="daily-desktop s6-desktop">
+            <div data-hf-id="hf-ncol" class="menu-bar"><span data-hf-id="hf-ngml">mahjong</span><span data-hf-id="hf-zn6m" class="mono">3 个进行中 · 只读</span></div>
+            <div data-hf-id="hf-l9js" class="work-area s6-work"><h3 data-hf-id="hf-n9wz">继续处理你的日常工作</h3><div data-hf-id="hf-um6m" class="work-line" style="width: 92%"></div><div data-hf-id="hf-wcko" class="work-line" style="width: 72%"></div><div data-hf-id="hf-9eap" class="work-line" style="width: 84%"></div><div data-hf-id="hf-yrko" class="work-line" style="width: 58%"></div></div>
+            <div data-hf-id="hf-3ram" class="mini-menu s6-menu"><h3 data-hf-id="hf-jmya"><span data-hf-id="hf-a9e7" class="status-dot"></span>mahjong</h3><div data-hf-id="hf-f87a" class="mini-row"><span data-hf-id="hf-6948">任务整理</span><strong data-hf-id="hf-4vrt">进行中</strong></div><div data-hf-id="hf-symi" class="mini-row"><span data-hf-id="hf-fln7">文档润色</span><strong data-hf-id="hf-7rfx">进行中</strong></div><div data-hf-id="hf-tcxj" class="mini-row"><span data-hf-id="hf-uvv0">问题排查</span><strong data-hf-id="hf-gg4c">活跃</strong></div><div data-hf-id="hf-tr8k" class="mini-row"><span data-hf-id="hf-emdf">隐私模式</span><strong data-hf-id="hf-59vn">开启</strong></div></div>
+            <div data-hf-id="hf-ix81" class="pet-float s6-pet">
+              <div data-hf-id="hf-cek7" class="tile-card back-a"></div>
+              <div data-hf-id="hf-rfio" class="tile-card back-b"></div>
+              <div data-hf-id="hf-eyj7" class="tile-card main"><div data-hf-id="hf-tnw6" class="tile-symbol blue"></div><div data-hf-id="hf-28b5" class="tile-symbol red"></div><div data-hf-id="hf-rr30" class="tile-symbol"></div></div>
+              <div data-hf-id="hf-ng9f" class="running-badge"><span data-hf-id="hf-bgba" class="status-dot"></span>可见</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-hf-id="hf-bht2" class="fadeout"></div>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      var tl = gsap.timeline({ paused: true });
+      var totalDuration = 52;
+
+      function focusTransition(outScene, inScene, at, duration) {
+        tl.set(inScene, { opacity: 1, filter: "blur(18px)" }, at);
+        tl.to(outScene, { opacity: 0, filter: "blur(16px)", scale: 1.018, duration: duration, ease: "sine.inOut" }, at);
+        tl.to(inScene, { filter: "blur(0px)", duration: duration, ease: "sine.inOut" }, at);
+      }
+
+      function enterScene1() {
+        tl.from(".topbar", { y: -28, opacity: 0, duration: 0.58, ease: "power3.out" }, 0.18);
+        tl.from(".s1-eyebrow", { x: -42, opacity: 0, duration: 0.48, ease: "expo.out" }, 0.34);
+        tl.from(".s1-title", { y: 72, opacity: 0, filter: "blur(8px)", duration: 0.78, ease: "power4.out" }, 0.50);
+        tl.from(".s1-copy", { x: -34, opacity: 0, duration: 0.56, ease: "sine.out" }, 0.84);
+        tl.from(".s1-pill", { y: 22, opacity: 0, scale: 0.96, duration: 0.42, ease: "back.out(1.3)" }, 1.14);
+        tl.from(".s1-terminal", { x: 78, opacity: 0, scale: 0.97, duration: 0.70, ease: "power3.out" }, 0.58);
+        tl.from(".s1-pet .tile-card", { y: 82, rotation: -8, opacity: 0, duration: 0.70, stagger: 0.10, ease: "power3.out" }, 1.02);
+      }
+
+      function enterScene2(start) {
+        tl.from(".s2-eyebrow", { x: -50, opacity: 0, duration: 0.46, ease: "expo.out" }, start);
+        tl.from(".s2-title", { y: 64, opacity: 0, filter: "blur(7px)", duration: 0.74, ease: "power4.out" }, start + 0.16);
+        tl.from(".s2-copy", { x: -34, opacity: 0, duration: 0.54, ease: "sine.out" }, start + 0.52);
+        tl.from(".s2-desktop", { scale: 0.96, opacity: 0, duration: 0.64, ease: "power3.out" }, start + 0.18);
+        tl.from(".s2-window", { y: 56, opacity: 0, duration: 0.50, stagger: 0.12, ease: "back.out(1.1)" }, start + 0.56);
+        tl.from(".s2-pet", { scale: 0.72, opacity: 0, duration: 0.48, ease: "elastic.out(1, 0.75)" }, start + 1.12);
+      }
+
+      function enterScene3(start) {
+        tl.from(".s3-eyebrow", { x: -48, opacity: 0, duration: 0.46, ease: "expo.out" }, start);
+        tl.from(".s3-title", { y: 60, opacity: 0, filter: "blur(7px)", duration: 0.72, ease: "power4.out" }, start + 0.15);
+        tl.from(".s3-copy", { x: -34, opacity: 0, duration: 0.52, ease: "sine.out" }, start + 0.52);
+        tl.from(".s3-panel", { scale: 0.95, opacity: 0, duration: 0.62, ease: "power3.out" }, start + 0.22);
+        tl.from(".s3-source", { x: -58, opacity: 0, duration: 0.46, stagger: 0.09, ease: "power2.out" }, start + 0.64);
+        tl.from(".s3-status", { x: 66, opacity: 0, duration: 0.48, stagger: 0.11, ease: "back.out(1.1)" }, start + 0.94);
+        tl.from(".scan-bar", { scaleX: 0, opacity: 0, transformOrigin: "left center", duration: 0.46, ease: "power2.out" }, start + 1.18);
+      }
+
+      function enterScene4(start) {
+        tl.from(".s4-eyebrow", { x: -48, opacity: 0, duration: 0.44, ease: "expo.out" }, start);
+        tl.from(".s4-title", { y: 64, opacity: 0, filter: "blur(7px)", duration: 0.74, ease: "power4.out" }, start + 0.14);
+        tl.from(".s4-copy", { x: -34, opacity: 0, duration: 0.54, ease: "sine.out" }, start + 0.50);
+        tl.from(".s4-board", { y: 64, opacity: 0, scale: 0.96, duration: 0.74, ease: "power3.out" }, start + 0.22);
+        tl.from(".s4-card", { y: 32, opacity: 0, duration: 0.42, stagger: 0.08, ease: "back.out(1.1)" }, start + 0.92);
+        tl.from(".s4-cursor", { x: 180, y: 90, opacity: 0, duration: 0.44, ease: "power2.out" }, start + 0.56);
+        tl.to(".s4-cursor", { x: 1160, y: 480, duration: 0.62, overwrite: "auto", ease: "power2.inOut" }, start + 1.04);
+        tl.to(".s4-click", { left: 1288, top: 496, opacity: 1, scale: 1.24, duration: 0.36, ease: "power2.out" }, start + 1.58);
+      }
+
+      function enterScene5(start) {
+        tl.from(".s5-eyebrow", { x: -48, opacity: 0, duration: 0.44, ease: "expo.out" }, start);
+        tl.from(".s5-title", { y: 64, opacity: 0, filter: "blur(7px)", duration: 0.72, ease: "power4.out" }, start + 0.12);
+        tl.from(".s5-copy", { x: -34, opacity: 0, duration: 0.52, ease: "sine.out" }, start + 0.48);
+        tl.from(".s5-panel", { scale: 0.95, opacity: 0, duration: 0.62, ease: "power3.out" }, start + 0.22);
+        tl.from(".s5-setting", { y: 42, opacity: 0, duration: 0.46, stagger: 0.09, ease: "back.out(1.1)" }, start + 0.64);
+        tl.from(".s5-diagnostic", { x: 48, opacity: 0, duration: 0.44, ease: "power2.out" }, start + 1.08);
+      }
+
+      function enterScene6(start) {
+        tl.from(".s6-eyebrow", { x: -48, opacity: 0, duration: 0.46, ease: "expo.out" }, start);
+        tl.from(".s6-title", { y: 72, opacity: 0, filter: "blur(8px)", duration: 0.82, ease: "power4.out" }, start + 0.16);
+        tl.from(".s6-copy", { x: -34, opacity: 0, duration: 0.56, ease: "sine.out" }, start + 0.58);
+        tl.from(".s6-url", { y: 24, opacity: 0, duration: 0.46, ease: "back.out(1.2)" }, start + 0.94);
+        tl.from(".s6-desktop", { scale: 0.96, opacity: 0, duration: 0.68, ease: "power3.out" }, start + 0.20);
+        tl.from(".s6-work", { x: -46, opacity: 0, duration: 0.48, ease: "power2.out" }, start + 0.70);
+        tl.from(".s6-menu", { x: 48, opacity: 0, duration: 0.46, ease: "back.out(1.1)" }, start + 0.94);
+        tl.from(".s6-pet", { y: 46, opacity: 0, scale: 0.84, duration: 0.48, ease: "elastic.out(1, 0.7)" }, start + 1.18);
+      }
+
+      enterScene1();
+      focusTransition("#scene1", "#scene2", 7.1, 0.72);
+      enterScene2(7.62);
+      focusTransition("#scene2", "#scene3", 15.2, 0.74);
+      enterScene3(15.76);
+      focusTransition("#scene3", "#scene4", 24.1, 0.78);
+      enterScene4(24.72);
+      focusTransition("#scene4", "#scene5", 33.1, 0.72);
+      enterScene5(33.66);
+      focusTransition("#scene5", "#scene6", 42.7, 0.78);
+      enterScene6(43.34);
+
+      tl.to(".s1-pet", { y: -10, duration: 3.1, repeat: Math.floor(totalDuration / 3.1) - 1, yoyo: true, ease: "sine.inOut" }, 1.6);
+      tl.to(".s2-pet", { y: -12, duration: 3.0, repeat: 2, yoyo: true, ease: "sine.inOut" }, 9.1);
+      tl.to(".progress-fill", { width: "92%", duration: 4.0, ease: "sine.inOut" }, 9.3);
+      tl.to(".status-dot", { scale: 1.2, duration: 1.2, repeat: Math.floor(totalDuration / 1.2) - 1, yoyo: true, ease: "sine.inOut" }, 1.5);
+      tl.to(".scan-bar", { y: 404, duration: 4.4, repeat: 1, yoyo: true, ease: "sine.inOut" }, 17.4);
+      tl.to(".s6-pet", { y: -10, duration: 2.6, repeat: 2, yoyo: true, ease: "sine.inOut" }, 45.4);
+      tl.to(".fadeout", { opacity: 1, duration: 0.85, ease: "sine.inOut" }, 51.1);
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>

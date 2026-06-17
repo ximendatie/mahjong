@@ -2,9 +2,11 @@
 
 [中文 README](README.zh-CN.md)
 
-![mahjong visual showcase](docs/assets/showcase.png)
+## Intro Video
 
-[Watch the 52-second product walkthrough](docs/assets/mahjong-intro.mp4) ·
+[![Watch the mahjong intro video](docs/assets/showcase.png)](docs/assets/mahjong-intro.mp4)
+
+[Watch the intro video](docs/assets/mahjong-intro.mp4) ·
 [Open the visual showcase](docs/showcase.html) ·
 [Download a release](https://github.com/ximendatie/mahjong/releases) ·
 [Launch playbook](docs/launch.md)

@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-resolution="landscape">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, height=1080">
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #06100e;
+      }
+
+      body {
+        color: #f7f3ea;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+        letter-spacing: 0;
+      }
+
+      #root {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #06100e;
+        perspective: 1400px;
+      }
+
+      .scene {
+        position: absolute;
+        inset: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background-color: #06100e;
+        transform-style: preserve-3d;
+      }
+
+      .scene:not(#scene-1) {
+        opacity: 0;
+        visibility: hidden;
+      }
+
+      .scene-content {
+        position: relative;
+        z-index: 4;
+        width: 100%;
+        height: 100%;
+        padding: 92px 120px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 34px;
+        transform-style: preserve-3d;
+      }
+
+      .field {
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(circle at 75% 20%, rgba(0, 214, 163, 0.24), rgba(0, 214, 163, 0) 30%),
+          radial-gradient(circle at 15% 84%, rgba(255, 90, 71, 0.2), rgba(255, 90, 71, 0) 28%),
+          radial-gradient(circle at 50% 50%, rgba(216, 167, 63, 0.12), rgba(216, 167, 63, 0) 40%),
+          #06100e;
+      }
+
+      .grid {
+        position: absolute;
+        inset: -80px;
+        opacity: 0.2;
+        background:
+          linear-gradient(90deg, rgba(247, 243, 234, 0.12) 1px, rgba(6, 16, 14, 0) 1px) 0 0 / 72px 72px,
+          linear-gradient(0deg, rgba(247, 243, 234, 0.12) 1px, rgba(6, 16, 14, 0) 1px) 0 0 / 72px 72px;
+        mask-image: radial-gradient(circle at 50% 50%, #000 0%, rgba(0, 0, 0, 0.76) 44%, rgba(0, 0, 0, 0) 80%);
+      }
+
+      .grain {
+        position: absolute;
+        inset: 0;
+        opacity: 0.13;
+        background: repeating-linear-gradient(
+          180deg,
+          rgba(247, 243, 234, 0.12) 0,
+          rgba(247, 243, 234, 0.12) 1px,
+          rgba(6, 16, 14, 0) 1px,
+          rgba(6, 16, 14, 0) 9px
+        );
+      }
+
+      .lens {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        pointer-events: none;
+        background:
+          radial-gradient(circle at 50% 50%, rgba(6, 16, 14, 0) 0%, rgba(6, 16, 14, 0) 54%, rgba(0, 0, 0, 0.36) 100%),
+          linear-gradient(120deg, rgba(0, 214, 163, 0), rgba(0, 214, 163, 0.08), rgba(255, 90, 71, 0));
+      }
+
+      .glass-wipe {
+        position: absolute;
+        inset: 0;
+        z-index: 30;
+        pointer-events: none;
+      }
+
+      .wipe {
+        position: absolute;
+        top: 0;
+        left: -1980px;
+        width: 1920px;
+        height: 1080px;
+        transform-origin: left center;
+        opacity: 0.96;
+      }
+
+      .wipe.a {
+        background: rgba(0, 214, 163, 0.78);
+      }
+
+      .wipe.b {
+        background: rgba(247, 243, 234, 0.85);
+      }
+
+      .wipe.c {
+        background: rgba(255, 90, 71, 0.64);
+      }
+
+      .brand {
+        width: max-content;
+        color: #f7f3ea;
+        font-size: 28px;
+        font-weight: 920;
+      }
+
+      .eyebrow {
+        width: max-content;
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        color: #00d6a3;
+        font-size: 22px;
+        font-weight: 920;
+        text-transform: uppercase;
+      }
+
+      .eyebrow::before {
+        content: "";
+        width: 52px;
+        height: 3px;
+        background: #00d6a3;
+      }
+
+      .hero-title,
+      .title {
+        font-family: ui-serif, serif;
+        font-weight: 1000;
+        line-height: 0.92;
+        letter-spacing: 0;
+      }
+
+      .hero-title {
+        max-width: 960px;
+        font-size: 152px;
+      }
+
+      .title {
+        max-width: 900px;
+        font-size: 118px;
+      }
+
+      .hero-title .line,
+      .title .line {
+        display: block;
+      }
+
+      .micro {
+        max-width: 680px;
+        color: #aeb9ad;
+        font-size: 30px;
+        line-height: 1.3;
+        font-weight: 760;
+      }
+
+      .mono {
+        font-family: monospace;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+      }
+
+      .chip {
+        min-height: 56px;
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 18px;
+        border: 1px solid rgba(247, 243, 234, 0.18);
+        border-radius: 999px;
+        background: rgba(247, 243, 234, 0.08);
+        box-shadow: 0 22px 52px rgba(0, 0, 0, 0.28);
+        color: #f7f3ea;
+        font-size: 22px;
+        font-weight: 920;
+        backdrop-filter: blur(18px);
+      }
+
+      .dot {
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+        background: #00d6a3;
+        box-shadow: 0 0 0 7px rgba(0, 214, 163, 0.2);
+      }
+
+      .dot.gold {
+        background: #d8a73f;
+        box-shadow: 0 0 0 7px rgba(216, 167, 63, 0.2);
+      }
+
+      .dot.coral {
+        background: #ff5a47;
+        box-shadow: 0 0 0 7px rgba(255, 90, 71, 0.18);
+      }
+
+      .scene-1-layout,
+      .scene-2-layout,
+      .scene-3-layout,
+      .scene-4-layout,
+      .scene-5-layout {
+        display: grid;
+        align-items: center;
+        gap: 72px;
+      }
+
+      .scene-1-layout {
+        grid-template-columns: 0.85fr 1.15fr;
+      }
+
+      .tile-camera {
+        position: relative;
+        height: 780px;
+        display: grid;
+        place-items: center;
+        transform-style: preserve-3d;
+        perspective: 1200px;
+      }
+
+      .halo {
+        position: absolute;
+        border-radius: 50%;
+        border: 1.5px solid rgba(0, 214, 163, 0.24);
+        box-shadow: 0 0 80px rgba(0, 214, 163, 0.08);
+        transform: rotateX(64deg);
+      }
+
+      .halo.h1 {
+        width: 720px;
+        height: 720px;
+      }
+
+      .halo.h2 {
+        width: 520px;
+        height: 520px;
+        border-color: rgba(216, 167, 63, 0.22);
+      }
+
+      .halo.h3 {
+        width: 318px;
+        height: 318px;
+        border-color: rgba(255, 90, 71, 0.2);
+      }
+
+      .tile {
+        position: absolute;
+        width: 132px;
+        height: 158px;
+        object-fit: contain;
+        filter: drop-shadow(0 32px 30px rgba(0, 0, 0, 0.42));
+        will-change: transform, opacity;
+      }
+
+      .tile.hero {
+        width: 240px;
+        height: 288px;
+        z-index: 4;
+      }
+
+      .tile.t1 {
+        transform: translate3d(-312px, -196px, -80px) rotateZ(-16deg) rotateY(12deg);
+      }
+
+      .tile.t2 {
+        transform: translate3d(312px, -176px, -120px) rotateZ(12deg) rotateY(-18deg);
+      }
+
+      .tile.t3 {
+        transform: translate3d(-326px, 206px, -130px) rotateZ(14deg) rotateY(16deg);
+      }
+
+      .tile.t4 {
+        transform: translate3d(300px, 230px, -90px) rotateZ(-10deg) rotateY(-14deg);
+      }
+
+      .status-pulse {
+        position: absolute;
+        right: 108px;
+        bottom: 144px;
+      }
+
+      .scene-2-layout {
+        grid-template-columns: 0.78fr 1.22fr;
+      }
+
+      .network {
+        position: relative;
+        height: 780px;
+        transform-style: preserve-3d;
+        perspective: 1200px;
+      }
+
+      .beam {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 580px;
+        height: 2px;
+        transform-origin: left center;
+        background: linear-gradient(90deg, rgba(0, 214, 163, 0), rgba(0, 214, 163, 0.64), rgba(0, 214, 163, 0));
+        box-shadow: 0 0 18px rgba(0, 214, 163, 0.25);
+      }
+
+      .node {
+        position: absolute;
+        width: 190px;
+        min-height: 138px;
+        display: grid;
+        place-items: center;
+        gap: 8px;
+        padding: 16px;
+        border: 1px solid rgba(247, 243, 234, 0.16);
+        border-radius: 14px;
+        background: rgba(247, 243, 234, 0.09);
+        box-shadow: 0 28px 70px rgba(0, 0, 0, 0.32);
+        backdrop-filter: blur(18px);
+        font-size: 22px;
+        font-weight: 920;
+        transform-style: preserve-3d;
+      }
+
+      .node img {
+        width: 64px;
+        height: 76px;
+        object-fit: contain;
+      }
+
+      .node img.icon {
+        width: 60px;
+        height: 60px;
+      }
+
+      .node.n1 { left: 88px; top: 78px; }
+      .node.n2 { right: 78px; top: 92px; }
+      .node.n3 { left: 382px; top: 304px; }
+      .node.n4 { right: 262px; top: 328px; }
+      .node.n5 { left: 144px; bottom: 94px; }
+      .node.n6 { right: 102px; bottom: 102px; }
+
+      .core {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 232px;
+        height: 232px;
+        margin-left: -116px;
+        margin-top: -116px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        border: 1px solid rgba(0, 214, 163, 0.3);
+        background: radial-gradient(circle, rgba(0, 214, 163, 0.24), rgba(0, 214, 163, 0.03));
+        box-shadow: 0 0 90px rgba(0, 214, 163, 0.24);
+        font-size: 72px;
+        font-weight: 1000;
+      }
+
+      .scene-3-layout {
+        grid-template-columns: 1.05fr 0.95fr;
+      }
+
+      .hud-board {
+        position: relative;
+        height: 710px;
+        transform-style: preserve-3d;
+        border: 1px solid rgba(247, 243, 234, 0.16);
+        border-radius: 20px;
+        background: rgba(247, 243, 234, 0.075);
+        box-shadow: 0 42px 120px rgba(0, 0, 0, 0.34);
+        overflow: hidden;
+        backdrop-filter: blur(18px);
+      }
+
+      .hud-board::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: linear-gradient(120deg, rgba(247, 243, 234, 0.12), rgba(247, 243, 234, 0), rgba(0, 214, 163, 0.1));
+      }
+
+      .hud-top {
+        height: 76px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 28px;
+        border-bottom: 1px solid rgba(247, 243, 234, 0.12);
+        font-size: 24px;
+        font-weight: 920;
+      }
+
+      .hud-columns {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        height: calc(100% - 76px);
+      }
+
+      .hud-col {
+        padding: 28px;
+        border-right: 1px solid rgba(247, 243, 234, 0.1);
+      }
+
+      .hud-col:last-child {
+        border-right: 0;
+      }
+
+      .hud-label {
+        color: #00d6a3;
+        font-size: 18px;
+        font-weight: 920;
+        margin-bottom: 22px;
+      }
+
+      .hud-card {
+        min-height: 140px;
+        margin-bottom: 18px;
+        padding: 20px;
+        border-radius: 12px;
+        border: 1px solid rgba(247, 243, 234, 0.13);
+        background: rgba(247, 243, 234, 0.11);
+        transform-style: preserve-3d;
+      }
+
+      .hud-card strong {
+        display: block;
+        font-size: 44px;
+        line-height: 1;
+      }
+
+      .hud-card span {
+        color: #aeb9ad;
+        font-size: 19px;
+        font-weight: 820;
+      }
+
+      .big-number {
+        font-family: monospace;
+        font-size: 132px;
+        font-weight: 1000;
+        line-height: 0.9;
+      }
+
+      .scene-4-layout {
+        grid-template-columns: 0.9fr 1.1fr;
+      }
+
+      .boundary-stage {
+        position: relative;
+        height: 720px;
+        display: grid;
+        place-items: center;
+        transform-style: preserve-3d;
+      }
+
+      .lock-ring {
+        position: absolute;
+        width: 612px;
+        height: 612px;
+        border-radius: 50%;
+        border: 2px dashed rgba(0, 214, 163, 0.3);
+      }
+
+      .shield {
+        position: relative;
+        width: 410px;
+        height: 500px;
+        display: grid;
+        place-items: center;
+        border-radius: 46px;
+        border: 1px solid rgba(247, 243, 234, 0.16);
+        background: rgba(247, 243, 234, 0.075);
+        box-shadow: 0 44px 120px rgba(0, 0, 0, 0.34);
+        backdrop-filter: blur(18px);
+      }
+
+      .shield img {
+        width: 264px;
+        height: 318px;
+        object-fit: contain;
+        filter: drop-shadow(0 34px 36px rgba(0, 0, 0, 0.36));
+      }
+
+      .rule-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+        width: 100%;
+      }
+
+      .rule-card {
+        min-height: 186px;
+        padding: 24px;
+        border: 1px solid rgba(247, 243, 234, 0.14);
+        border-radius: 14px;
+        background: rgba(247, 243, 234, 0.085);
+        box-shadow: 0 28px 70px rgba(0, 0, 0, 0.24);
+        backdrop-filter: blur(16px);
+      }
+
+      .rule-card b {
+        display: block;
+        margin-bottom: 16px;
+        font-size: 35px;
+        line-height: 1;
+      }
+
+      .rule-card span {
+        color: #aeb9ad;
+        font-size: 22px;
+        font-weight: 780;
+      }
+
+      .scene-5-layout {
+        grid-template-columns: 1fr 0.95fr;
+      }
+
+      .final-tile {
+        position: relative;
+        height: 780px;
+        display: grid;
+        place-items: center;
+        transform-style: preserve-3d;
+      }
+
+      .final-glow {
+        position: absolute;
+        width: 650px;
+        height: 650px;
+        border-radius: 50%;
+        background:
+          radial-gradient(circle, rgba(255, 90, 71, 0.25), rgba(255, 90, 71, 0) 48%),
+          conic-gradient(from 110deg, rgba(0, 214, 163, 0), rgba(0, 214, 163, 0.34), rgba(216, 167, 63, 0.25), rgba(255, 90, 71, 0), rgba(0, 214, 163, 0));
+      }
+
+      .final-tile img {
+        width: 314px;
+        height: 376px;
+        object-fit: contain;
+        z-index: 4;
+        filter: drop-shadow(0 54px 46px rgba(0, 0, 0, 0.44));
+      }
+
+      .footer-tag {
+        position: absolute;
+        left: 120px;
+        bottom: 56px;
+        z-index: 8;
+        color: #aeb9ad;
+        font-size: 21px;
+        font-weight: 820;
+      }
+    </style>
+  </head>
+  <body>
+    <div data-hf-id="hf-6tfx" id="root" data-composition-id="main" data-start="0" data-duration="32" data-width="1920" data-height="1080">
+      <section data-hf-id="hf-k674" id="scene-1" class="scene">
+        <div data-hf-id="hf-876t" class="field" data-layout-ignore=""></div>
+        <div data-hf-id="hf-80b5" class="grid" data-layout-ignore=""></div>
+        <div data-hf-id="hf-ryn8" class="grain" data-layout-ignore=""></div>
+        <div data-hf-id="hf-3ecl" class="lens" data-layout-ignore=""></div>
+        <div data-hf-id="hf-6nqd" class="scene-content scene-1-layout">
+          <div data-hf-id="hf-yeow">
+            <div data-hf-id="hf-usz1" class="brand s1-brand">mahjong</div>
+            <div data-hf-id="hf-c8e8" class="eyebrow s1-eye">Agent radar</div>
+            <h1 data-hf-id="hf-xs9w" class="hero-title s1-title"><span data-hf-id="hf-tokp" class="line">一张牌</span><span data-hf-id="hf-h58s" class="line">看全局</span></h1>
+            <div data-hf-id="hf-fhrl" class="chip-row s1-chips">
+              <div data-hf-id="hf-sqmm" class="chip"><span data-hf-id="hf-9gry" class="dot"></span><span data-hf-id="hf-5wj8">LOCAL</span></div>
+              <div data-hf-id="hf-gk42" class="chip"><span data-hf-id="hf-a2gk" class="dot gold"></span><span data-hf-id="hf-d17i">READ-ONLY</span></div>
+              <div data-hf-id="hf-gyf3" class="chip"><span data-hf-id="hf-ty7d" class="dot coral"></span><span data-hf-id="hf-mzdf">LIVE</span></div>
+            </div>
+          </div>
+          <div data-hf-id="hf-8x1w" class="tile-camera">
+            <div data-hf-id="hf-gaof" class="halo h1"></div>
+            <div data-hf-id="hf-7msk" class="halo h2"></div>
+            <div data-hf-id="hf-8egd" class="halo h3"></div>
+            <img data-hf-id="hf-wkb3" class="tile hero" src="assets/dot-7.png" alt="">
+            <img data-hf-id="hf-uuv6" class="tile t1" src="assets/dot-1.png" alt="">
+            <img data-hf-id="hf-eun9" class="tile t2" src="assets/dot-3.png" alt="">
+            <img data-hf-id="hf-eoyg" class="tile t3" src="assets/dot-5.png" alt="">
+            <img data-hf-id="hf-pakp" class="tile t4" src="assets/dot-9.png" alt="">
+            <div data-hf-id="hf-zs4w" class="chip status-pulse"><span data-hf-id="hf-zcc2" class="dot"></span><span data-hf-id="hf-7q5d">3 running</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section data-hf-id="hf-v1or" id="scene-2" class="scene">
+        <div data-hf-id="hf-net5" class="field" data-layout-ignore=""></div>
+        <div data-hf-id="hf-8b9h" class="grid" data-layout-ignore=""></div>
+        <div data-hf-id="hf-3obg" class="grain" data-layout-ignore=""></div>
+        <div data-hf-id="hf-y6yh" class="lens" data-layout-ignore=""></div>
+        <div data-hf-id="hf-lg2g" class="scene-content scene-2-layout">
+          <div data-hf-id="hf-y7yw">
+            <div data-hf-id="hf-5dqu" class="eyebrow s2-eye">sources</div>
+            <h2 data-hf-id="hf-gt5z" class="title s2-title"><span data-hf-id="hf-e3p1" class="line">多源</span><span data-hf-id="hf-yzjt" class="line">接入</span></h2>
+            <p data-hf-id="hf-wj1w" class="micro s2-micro">Codex / Claude / ChatGPT / Hermes / Trae / Terminal</p>
+          </div>
+          <div data-hf-id="hf-3gai" class="network">
+            <div data-hf-id="hf-yoja" class="beam b1" style="transform: rotate(0deg)"></div>
+            <div data-hf-id="hf-j4gn" class="beam b2" style="transform: rotate(60deg)"></div>
+            <div data-hf-id="hf-nyj3" class="beam b3" style="transform: rotate(120deg)"></div>
+            <div data-hf-id="hf-36wp" class="core">6</div>
+            <div data-hf-id="hf-sr0v" class="node n1"><img data-hf-id="hf-eryn" src="assets/dot-2.png" alt=""><span data-hf-id="hf-1vio">Codex</span></div>
+            <div data-hf-id="hf-hvj8" class="node n2"><img data-hf-id="hf-6sa1" src="assets/dot-4.png" alt=""><span data-hf-id="hf-fncj">Claude</span></div>
+            <div data-hf-id="hf-kust" class="node n3"><img data-hf-id="hf-a5t7" src="assets/dot-6.png" alt=""><span data-hf-id="hf-1ghg">ChatGPT</span></div>
+            <div data-hf-id="hf-1ewq" class="node n4"><img data-hf-id="hf-jyrl" class="icon" src="assets/hermes.png" alt=""><span data-hf-id="hf-zgpz">Hermes</span></div>
+            <div data-hf-id="hf-5d0r" class="node n5"><img data-hf-id="hf-ck11" class="icon" src="assets/trae-cn.png" alt=""><span data-hf-id="hf-1cgu">Trae CN</span></div>
+            <div data-hf-id="hf-wp4w" class="node n6"><img data-hf-id="hf-9nqd" src="assets/dot-8.png" alt=""><span data-hf-id="hf-dfp1">Terminal</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section data-hf-id="hf-r3kq" id="scene-3" class="scene">
+        <div data-hf-id="hf-olq8" class="field" data-layout-ignore=""></div>
+        <div data-hf-id="hf-9i6k" class="grid" data-layout-ignore=""></div>
+        <div data-hf-id="hf-2hed" class="grain" data-layout-ignore=""></div>
+        <div data-hf-id="hf-zdvk" class="lens" data-layout-ignore=""></div>
+        <div data-hf-id="hf-ar3n" class="scene-content scene-3-layout">
+          <div data-hf-id="hf-by38" class="hud-board">
+            <div data-hf-id="hf-rrut" class="hud-top"><span data-hf-id="hf-wx91">mahjong Board</span><span data-hf-id="hf-2tn4" class="mono">18.4k</span></div>
+            <div data-hf-id="hf-oe11" class="hud-columns">
+              <div data-hf-id="hf-m3he" class="hud-col">
+                <div data-hf-id="hf-6w0l" class="hud-label">RUNNING</div>
+                <div data-hf-id="hf-gbc6" class="hud-card"><strong data-hf-id="hf-fem3">3</strong><span data-hf-id="hf-97vv">agents</span></div>
+                <div data-hf-id="hf-xx4a" class="hud-card"><strong data-hf-id="hf-asa8">live</strong><span data-hf-id="hf-nieg">desktop + cli</span></div>
+              </div>
+              <div data-hf-id="hf-gcg6" class="hud-col">
+                <div data-hf-id="hf-j366" class="hud-label">DONE</div>
+                <div data-hf-id="hf-ybfb" class="hud-card"><strong data-hf-id="hf-dtdz">7</strong><span data-hf-id="hf-rhpm">today</span></div>
+                <div data-hf-id="hf-ypqc" class="hud-card"><strong data-hf-id="hf-p5wy">read</strong><span data-hf-id="hf-56rl">local state</span></div>
+              </div>
+              <div data-hf-id="hf-gqr7" class="hud-col">
+                <div data-hf-id="hf-d7i4" class="hud-label">PAUSED</div>
+                <div data-hf-id="hf-z41d" class="hud-card"><strong data-hf-id="hf-em01">1</strong><span data-hf-id="hf-aq5o">waiting</span></div>
+                <div data-hf-id="hf-zice" class="hud-card"><strong data-hf-id="hf-vivl">plan</strong><span data-hf-id="hf-z44q">future</span></div>
+              </div>
+            </div>
+          </div>
+          <div data-hf-id="hf-x11t">
+            <div data-hf-id="hf-m2vn" class="eyebrow s3-eye">board</div>
+            <h2 data-hf-id="hf-2qfa" class="title s3-title"><span data-hf-id="hf-vequ" class="line">状态</span><span data-hf-id="hf-0ja6" class="line">一屏</span></h2>
+            <div data-hf-id="hf-5wqe" class="big-number s3-num">3</div>
+            <p data-hf-id="hf-oq21" class="micro s3-micro">running now</p>
+          </div>
+        </div>
+      </section>
+
+      <section data-hf-id="hf-8bv1" id="scene-4" class="scene">
+        <div data-hf-id="hf-o7f7" class="field" data-layout-ignore=""></div>
+        <div data-hf-id="hf-93vj" class="grid" data-layout-ignore=""></div>
+        <div data-hf-id="hf-2vpe" class="grain" data-layout-ignore=""></div>
+        <div data-hf-id="hf-yzkj" class="lens" data-layout-ignore=""></div>
+        <div data-hf-id="hf-tnra" class="scene-content scene-4-layout">
+          <div data-hf-id="hf-xfcu">
+            <div data-hf-id="hf-9rs8" class="eyebrow s4-eye">boundary</div>
+            <h2 data-hf-id="hf-lxbt" class="title s4-title"><span data-hf-id="hf-4m5g" class="line">只读</span><span data-hf-id="hf-d4g2" class="line">边界</span></h2>
+            <div data-hf-id="hf-fmvj" class="rule-grid">
+              <div data-hf-id="hf-acsh" class="rule-card"><b data-hf-id="hf-x11k">LOCAL</b><span data-hf-id="hf-yehk">本地元数据</span></div>
+              <div data-hf-id="hf-mj4l" class="rule-card"><b data-hf-id="hf-6ilh">READ</b><span data-hf-id="hf-f5zi">默认只观察</span></div>
+              <div data-hf-id="hf-nq1o" class="rule-card"><b data-hf-id="hf-p56z">NO CLOUD</b><span data-hf-id="hf-zu5a">不上传</span></div>
+            </div>
+          </div>
+          <div data-hf-id="hf-3v7v" class="boundary-stage">
+            <div data-hf-id="hf-6e1g" class="lock-ring"></div>
+            <div data-hf-id="hf-1soj" class="shield"><img data-hf-id="hf-pyis" src="assets/white.png" alt=""></div>
+          </div>
+        </div>
+      </section>
+
+      <section data-hf-id="hf-7k78" id="scene-5" class="scene">
+        <div data-hf-id="hf-m7w2" class="field" data-layout-ignore=""></div>
+        <div data-hf-id="hf-aasm" class="grid" data-layout-ignore=""></div>
+        <div data-hf-id="hf-4v8j" class="grain" data-layout-ignore=""></div>
+        <div data-hf-id="hf-x01e" class="lens" data-layout-ignore=""></div>
+        <div data-hf-id="hf-b60x" class="scene-content scene-5-layout">
+          <div data-hf-id="hf-w8fr">
+            <div data-hf-id="hf-f449" class="brand s5-brand">mahjong</div>
+            <h2 data-hf-id="hf-vx5z" class="hero-title s5-title"><span data-hf-id="hf-brls" class="line">AI Agent</span><span data-hf-id="hf-urt8" class="line">桌面雷达</span></h2>
+            <div data-hf-id="hf-311h" class="chip-row s5-chips">
+              <div data-hf-id="hf-hcq4" class="chip"><span data-hf-id="hf-zqn3" class="dot"></span><span data-hf-id="hf-fgmu">macOS</span></div>
+              <div data-hf-id="hf-hr15" class="chip"><span data-hf-id="hf-c5jg" class="dot gold"></span><span data-hf-id="hf-iq9b">local-first</span></div>
+            </div>
+          </div>
+          <div data-hf-id="hf-me1l" class="final-tile">
+            <div data-hf-id="hf-mbla" class="final-glow"></div>
+            <img data-hf-id="hf-3x3i" src="assets/red.png" alt="">
+          </div>
+        </div>
+      </section>
+
+      <div data-hf-id="hf-nv41" class="glass-wipe" data-layout-ignore="">
+        <div data-hf-id="hf-sdtc" class="wipe a"></div>
+        <div data-hf-id="hf-11p7" class="wipe b"></div>
+        <div data-hf-id="hf-x3l6" class="wipe c"></div>
+      </div>
+      <div data-hf-id="hf-7okw" class="footer-tag">mahjong intro film</div>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      const duration = 32;
+
+      function repeatCount(cycle) {
+        return Math.max(0, Math.floor(duration / cycle) - 1);
+      }
+
+      function resetOld(scene, time) {
+        tl.set(scene, { x: 0, y: 0, scale: 1, opacity: 0, visibility: "hidden", filter: "blur(0px)", rotationX: 0, rotationY: 0, skewX: 0 }, time);
+      }
+
+      function glassCut(oldScene, newScene, time) {
+        tl.set(".wipe", { x: 0, skewX: -8 }, time - 0.01);
+        tl.to(".wipe.a", { x: 1980, duration: 0.24, ease: "power4.inOut", overwrite: "auto" }, time);
+        tl.to(".wipe.b", { x: 1980, duration: 0.24, ease: "power4.inOut", overwrite: "auto" }, time + 0.04);
+        tl.to(".wipe.c", { x: 1980, duration: 0.24, ease: "power4.inOut", overwrite: "auto" }, time + 0.08);
+        tl.set(oldScene, { opacity: 0 }, time + 0.2);
+        tl.set(newScene, { opacity: 1, visibility: "visible", zIndex: 4, x: 0, y: 0, scale: 1 }, time + 0.2);
+        tl.to(".wipe.a", { x: 3960, duration: 0.28, ease: "power4.inOut", overwrite: "auto" }, time + 0.3);
+        tl.to(".wipe.b", { x: 3960, duration: 0.28, ease: "power4.inOut", overwrite: "auto" }, time + 0.35);
+        tl.to(".wipe.c", { x: 3960, duration: 0.28, ease: "power4.inOut", overwrite: "auto" }, time + 0.4);
+        tl.set(".wipe", { x: 0, skewX: 0 }, time + 0.72);
+        resetOld(oldScene, time + 0.5);
+      }
+
+      function zoomThrough(oldScene, newScene, time) {
+        tl.set(newScene, { zIndex: 4, opacity: 0, visibility: "visible", scale: 0.54, filter: "blur(12px)" }, time);
+        tl.set(oldScene, { zIndex: 3, transformOrigin: "50% 50%" }, time);
+        tl.to(oldScene, { scale: 2.35, opacity: 0, filter: "blur(9px)", duration: 0.42, ease: "power3.in", overwrite: "auto" }, time);
+        tl.to(newScene, { scale: 1, opacity: 1, filter: "blur(0px)", duration: 0.52, ease: "expo.out", overwrite: "auto" }, time + 0.12);
+        resetOld(oldScene, time + 0.58);
+      }
+
+      function directionalBlur(oldScene, newScene, time) {
+        tl.set(newScene, { zIndex: 4, opacity: 0, visibility: "visible", x: 260, skewX: 9, filter: "blur(14px)" }, time);
+        tl.set(oldScene, { zIndex: 3 }, time);
+        tl.to(oldScene, { x: -260, skewX: -9, opacity: 0, filter: "blur(14px)", duration: 0.42, ease: "power3.in", overwrite: "auto" }, time);
+        tl.to(newScene, { x: 0, skewX: 0, opacity: 1, filter: "blur(0px)", duration: 0.48, ease: "power3.out", overwrite: "auto" }, time + 0.14);
+        resetOld(oldScene, time + 0.62);
+      }
+
+      function enter1() {
+        tl.from(".s1-brand", { y: 28, opacity: 0, duration: 0.42, ease: "power3.out" }, 0.18);
+        tl.from(".s1-eye", { x: -70, opacity: 0, duration: 0.34, ease: "expo.out" }, 0.32);
+        tl.from(".s1-title .line", { y: 110, opacity: 0, duration: 0.64, stagger: 0.08, ease: "power4.out" }, 0.44);
+        tl.from(".s1-chips .chip", { scale: 0.72, y: 24, opacity: 0, duration: 0.34, stagger: 0.06, ease: "back.out(1.7)" }, 1.08);
+        tl.from("#scene-1 .halo", { scale: 0.46, opacity: 0, duration: 0.7, stagger: 0.08, ease: "sine.out" }, 0.26);
+        tl.from("#scene-1 .tile", { z: -700, scale: 0.18, y: 180, rotationY: 70, opacity: 0, duration: 0.78, stagger: 0.075, ease: "expo.out" }, 0.52);
+        tl.fromTo(
+          ".status-pulse",
+          { scale: 0.68, x: 52, opacity: 0 },
+          { scale: 1, x: 0, opacity: 1, duration: 0.32, ease: "expo.out" },
+          0.92
+        );
+      }
+
+      function enter2(base) {
+        tl.from(".s2-eye", { x: -60, opacity: 0, duration: 0.34, ease: "expo.out" }, base + 0.18);
+        tl.from(".s2-title .line", { y: 90, opacity: 0, duration: 0.52, stagger: 0.08, ease: "power4.out" }, base + 0.32);
+        tl.from(".s2-micro", { y: 34, opacity: 0, duration: 0.38, ease: "circ.out" }, base + 0.76);
+        tl.from(".beam", { scaleX: 0, opacity: 0, duration: 0.46, stagger: 0.07, ease: "sine.out" }, base + 0.2);
+        tl.from(".core", { scale: 0.1, rotation: -18, opacity: 0, duration: 0.46, ease: "back.out(1.8)" }, base + 0.36);
+        tl.from(".node", { z: -420, rotationX: -56, y: 70, scale: 0.68, opacity: 0, duration: 0.48, stagger: { amount: 0.38, from: "center" }, ease: "power4.out" }, base + 0.62);
+      }
+
+      function enter3(base) {
+        tl.from(".hud-board", { rotationY: -20, rotationX: 8, x: -120, z: -360, opacity: 0, duration: 0.64, ease: "expo.out" }, base + 0.18);
+        tl.from(".hud-card", { rotationX: -54, y: 58, opacity: 0, duration: 0.42, stagger: { amount: 0.42, from: "start" }, ease: "power3.out" }, base + 0.62);
+        tl.from(".s3-eye", { x: 54, opacity: 0, duration: 0.32, ease: "power4.out" }, base + 0.26);
+        tl.from(".s3-title .line", { y: 84, opacity: 0, duration: 0.48, stagger: 0.07, ease: "circ.out" }, base + 0.4);
+        tl.from(".s3-num", { scale: 0.58, rotationX: -24, opacity: 0, duration: 0.42, ease: "back.out(1.5)" }, base + 0.92);
+        tl.from(".s3-micro", { y: 30, opacity: 0, duration: 0.32, ease: "expo.out" }, base + 1.08);
+      }
+
+      function enter4(base) {
+        tl.from(".s4-eye", { x: -62, opacity: 0, duration: 0.34, ease: "expo.out" }, base + 0.18);
+        tl.from(".s4-title .line", { y: 88, opacity: 0, duration: 0.54, stagger: 0.08, ease: "power4.out" }, base + 0.32);
+        tl.from(".rule-card", { rotationX: -46, y: 70, opacity: 0, duration: 0.42, stagger: 0.1, ease: "back.out(1.22)" }, base + 0.78);
+        tl.from(".lock-ring", { scale: 0.45, rotation: -28, opacity: 0, duration: 0.64, ease: "sine.out" }, base + 0.26);
+        tl.from(".shield", { rotationY: 24, z: -260, scale: 0.74, y: 78, opacity: 0, duration: 0.58, ease: "back.out(1.34)" }, base + 0.5);
+      }
+
+      function enter5(base) {
+        tl.from(".s5-brand", { y: 30, opacity: 0, duration: 0.4, ease: "power3.out" }, base + 0.18);
+        tl.from(".s5-title .line", { y: 106, opacity: 0, duration: 0.58, stagger: 0.08, ease: "expo.out" }, base + 0.32);
+        tl.from(".s5-chips .chip", { scale: 0.76, y: 30, opacity: 0, duration: 0.34, stagger: 0.08, ease: "back.out(1.5)" }, base + 0.96);
+        tl.from(".final-glow", { scale: 0.45, opacity: 0, duration: 0.62, ease: "sine.out" }, base + 0.22);
+        tl.from(".final-tile img", { z: -620, scale: 0.2, rotationY: -34, y: 160, opacity: 0, duration: 0.72, ease: "back.out(1.35)" }, base + 0.44);
+      }
+
+      enter1();
+      zoomThrough("#scene-1", "#scene-2", 5.1);
+      enter2(5.72);
+      glassCut("#scene-2", "#scene-3", 11.15);
+      enter3(11.72);
+      directionalBlur("#scene-3", "#scene-4", 17.55);
+      enter4(18.16);
+      zoomThrough("#scene-4", "#scene-5", 24.0);
+      enter5(24.58);
+
+      tl.from(".footer-tag", { y: 24, opacity: 0, duration: 0.38, ease: "power2.out" }, 0.5);
+      tl.to(".grain", { y: 88, duration: 5.2, ease: "sine.inOut", repeat: repeatCount(5.2), yoyo: true }, 0.2);
+      tl.to(".grid", { scale: 1.04, rotation: 0.4, duration: 6.4, ease: "sine.inOut", repeat: repeatCount(6.4), yoyo: true }, 0.5);
+      tl.to(".halo", { scale: 1.05, rotation: 8, duration: 3.2, ease: "sine.inOut", repeat: repeatCount(3.2), yoyo: true }, 0.5);
+      tl.to(".tile.hero, .final-tile img", { y: -18, duration: 2.4, ease: "sine.inOut", repeat: repeatCount(2.4), yoyo: true }, 1.0);
+      tl.to(".tile:not(.hero), .node", { y: -11, duration: 2.8, ease: "sine.inOut", repeat: repeatCount(2.8), yoyo: true }, 1.2);
+      tl.to(".beam", { opacity: 0.28, duration: 1.4, ease: "sine.inOut", repeat: repeatCount(1.4), yoyo: true }, 6.1);
+      tl.to(".lock-ring", { rotation: 24, scale: 1.04, duration: 3.6, ease: "sine.inOut", repeat: repeatCount(3.6), yoyo: true }, 18.4);
+      tl.to(".final-glow", { rotation: 18, scale: 1.04, duration: 3.4, ease: "sine.inOut", repeat: repeatCount(3.4), yoyo: true }, 24.7);
+      tl.to("#scene-5", { opacity: 0, duration: 0.7, ease: "sine.inOut" }, 31.1);
+      tl.to(".footer-tag", { opacity: 0, duration: 0.45, ease: "sine.inOut" }, 31.25);
+
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>

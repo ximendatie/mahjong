@@ -88,10 +88,11 @@ mahjong 默认只做只读的本地观察：
 | Provider | 任务元数据 | 运行态检测 | 权限说明 |
 | --- | --- | --- | --- |
 | Codex Desktop / Codex 本地会话 | 读取 `~/.codex/session_index.jsonl` 和 `~/.codex/sessions/**/*.jsonl`。 | 匹配终端进程。 | 仅读取本地文件。 |
+| Cursor | 从 `~/Library/Application Support/Cursor/User/globalStorage/state.vscdb` 读取 composer session 元数据，不解析对话正文。 | 通过 `NSWorkspace` 检测 Cursor Desktop，并用进程列表兜底；同时匹配 Cursor CLI 进程。 | 仅使用本地 SQLite 元数据和进程列表。 |
 | Claude 本地会话 | 读取 `~/.claude/projects/**/*.jsonl`。 | 匹配终端进程。 | 仅读取本地文件。 |
 | Claude Desktop 本地会话 | 读取 `~/Library/Application Support/Claude-3p/local-agent-mode-sessions/**/local_*.json` 和 `~/Library/Application Support/Claude-3p/claude-code-sessions/**/local_*.json` 的元数据。 | 把活跃会话与本地 Claude Desktop `--resume` 进程关联。 | 仅读取本地文件。 |
 | Hermes 本地会话 | 读取 `~/.hermes/state.db` 中的会话和消息元数据。 | 通过 `NSWorkspace` 检测 Hermes Agent 桌面应用，并通过 `ps` 检测 Hermes CLI/gateway 进程。 | 需要本地 SQLite 元数据存在。 |
-| 终端 Agent | 不解析对话内容。 | 从 `ps` 读取 Codex、Claude、Hermes 和 OpenClaw 的进程元数据。 | 仅使用进程列表。 |
+| 终端 Agent | 不解析对话内容。 | 从 `ps` 读取 Codex、Cursor、Claude、Hermes 和 OpenClaw 的进程元数据。 | 仅使用进程列表。 |
 | OpenClaw | 暂不解析任务元数据。 | 仅检测 OpenClaw Desktop 和 OpenClaw gateway/CLI 进程是否存在。 | 仅做存在性检测。 |
 | ChatGPT Desktop | 不解析对话正文；使用本地对话缓存修改时间作为最近活动兜底。 | 通过 `NSWorkspace` 检测应用是否运行，通过 Accessibility 按钮标签判断生成状态。 | Accessibility 是可选能力，只用于判断生成状态标签。 |
 | Trae CN | 读取 ai-agent `do_chat` 事件中的时间戳和 session/task 标识；不解析对话正文。 | 通过 `NSWorkspace` 检测 Trae CN 桌面端运行态，并用进程列表兜底。 | 仅使用本地日志元数据。 |

@@ -2,6 +2,19 @@ import XCTest
 @testable import mahjong
 
 final class DesktopAppRuntimeProviderTests: XCTestCase {
+    func testCursorBundleIdentifierCreatesRuntime() throws {
+        let runtime = try XCTUnwrap(DesktopAppRuntimeProvider.runtime(bundleIdentifier: "com.todesktop.230313mzl4w4u92"))
+
+        XCTAssertEqual(runtime.id, "desktop:cursor")
+        XCTAssertEqual(runtime.name, "Cursor")
+        XCTAssertEqual(runtime.provider, "Cursor")
+        XCTAssertEqual(runtime.providerID, .desktopApps)
+        XCTAssertEqual(runtime.kind, .desktopApp)
+        XCTAssertEqual(runtime.bundleIdentifier, "com.todesktop.230313mzl4w4u92")
+        XCTAssertEqual(runtime.iconBundleIdentifier, AgentRuntimeIconBundle.cursor)
+        XCTAssertTrue(runtime.summary.contains("Cursor composer session"))
+    }
+
     func testTraeCNBundleIdentifierCreatesRuntime() throws {
         let runtime = try XCTUnwrap(DesktopAppRuntimeProvider.runtime(bundleIdentifier: "cn.trae.app"))
 
@@ -50,6 +63,12 @@ final class DesktopAppRuntimeProviderTests: XCTestCase {
         let processLine = "96946 /Applications/Mira.app/Contents/MacOS/Mira"
 
         XCTAssertTrue(ProcessListReader.isMiraDesktopProcess(processLine[...]))
+    }
+
+    func testCursorDesktopProcessIsDetected() {
+        let processLine = "74466 /Applications/Cursor.app/Contents/MacOS/Cursor"
+
+        XCTAssertTrue(ProcessListReader.isCursorDesktopProcess(processLine[...]))
     }
 
     func testMiraHelperProcessIsIgnored() {

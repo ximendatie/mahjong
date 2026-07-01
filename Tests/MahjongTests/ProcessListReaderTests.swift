@@ -12,7 +12,11 @@ final class ProcessListReaderTests: XCTestCase {
     func testTerminalAgentDetectionIncludesCLIsAndExcludesApps() {
         XCTAssertTrue(ProcessListReader.isTerminalAgentProcess("/opt/homebrew/bin/codex run"))
         XCTAssertTrue(ProcessListReader.isTerminalAgentProcess("/usr/local/bin/claude --resume abc"))
+        XCTAssertTrue(ProcessListReader.isTerminalAgentProcess("/opt/homebrew/bin/cursor --wait ."))
         XCTAssertFalse(ProcessListReader.isTerminalAgentProcess("/Applications/Codex.app/Contents/MacOS/Codex"))
+        XCTAssertFalse(ProcessListReader.isTerminalAgentProcess("/Applications/Cursor.app/Contents/MacOS/Cursor"))
+        XCTAssertFalse(ProcessListReader.isTerminalAgentProcess("cursor helper: filewatcher [3:empty-window]"))
+        XCTAssertFalse(ProcessListReader.isTerminalAgentProcess("/System/Library/PrivateFrameworks/TextInputUIMacHelper.framework/Versions/A/XPCServices/CursorUIViewService.xpc/Contents/MacOS/CursorUIViewService"))
         XCTAssertFalse(ProcessListReader.isTerminalAgentProcess("/bin/ps -ax -o pid=,args="))
     }
 

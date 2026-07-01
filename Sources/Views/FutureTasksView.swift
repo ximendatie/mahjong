@@ -11,12 +11,19 @@ struct FutureTasksView: View {
     @State private var editingTaskID: FutureTaskItem.ID?
     @State private var draggedTaskID: FutureTaskItem.ID?
     @State private var dropTargetTaskID: FutureTaskItem.ID?
+    @State private var composerInstanceID = UUID()
 
     var body: some View {
         taskColumns
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .onChange(of: showsComposer) { isPresented in
+                if isPresented {
+                    composerInstanceID = UUID()
+                }
+            }
             .sheet(isPresented: $showsComposer, onDismiss: clearEditor) {
                 futureTaskComposerSheet
+                    .id(composerInstanceID)
             }
     }
 

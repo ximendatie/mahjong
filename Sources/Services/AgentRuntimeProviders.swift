@@ -14,6 +14,7 @@ struct TerminalAgentRuntimeProvider: AgentRuntimeProvider {
     private func readRuntimes() -> [AgentRuntime] {
         let output = ProcessListReader.readProcessList()
         var codexCount = 0
+        var cursorCount = 0
         var claudeCount = 0
         var hermesCount = 0
         var openClawCount = 0
@@ -38,8 +39,10 @@ struct TerminalAgentRuntimeProvider: AgentRuntimeProvider {
                 continue
             }
 
-            if lowercased.contains("claude") {
+            if ProcessListReader.containsCommandName(lowercased, name: "claude") {
                 claudeCount += 1
+            } else if ProcessListReader.containsCommandName(lowercased, name: "cursor") {
+                cursorCount += 1
             } else {
                 codexCount += 1
             }
@@ -72,6 +75,21 @@ struct TerminalAgentRuntimeProvider: AgentRuntimeProvider {
                     summary: "检测到 Claude 终端运行态；任务卡仍以 Claude session 为准",
                     processCount: claudeCount,
                     iconBundleIdentifier: AgentRuntimeIconBundle.claude
+                )
+            )
+        }
+
+        if cursorCount > 0 {
+            runtimes.append(
+                AgentRuntime(
+                    id: "terminal:cursor",
+                    name: "Cursor CLI",
+                    provider: "Cursor",
+                    providerID: providerID,
+                    kind: .terminal,
+                    summary: "检测到 Cursor 终端运行态；任务卡从本地 Cursor composer session 元数据读取",
+                    processCount: cursorCount,
+                    iconBundleIdentifier: AgentRuntimeIconBundle.cursor
                 )
             )
         }
@@ -123,7 +141,8 @@ struct DesktopAppRuntimeProvider: AgentRuntimeProvider {
             let needsTraeFallback = !runtimes.contains { $0.id == "desktop:trae" }
             let needsMiraFallback = !runtimes.contains { $0.id == "desktop:mira" }
             let needsHermesFallback = !runtimes.contains { $0.id == "desktop:hermes" }
-            if needsHermesFallback || needsTraeFallback || needsMiraFallback {
+            let needsCursorFallback = !runtimes.contains { $0.id == "desktop:cursor" }
+            if needsHermesFallback || needsTraeFallback || needsMiraFallback || needsCursorFallback {
                 let processLines = ProcessListReader.readProcessList().split(separator: "\n")
                 if needsHermesFallback, processLines.contains(where: ProcessListReader.isHermesDesktopProcess) {
                     runtimes.append(Self.hermesRuntime(bundleIdentifier: AgentRuntimeIconBundle.hermes))
@@ -135,6 +154,10 @@ struct DesktopAppRuntimeProvider: AgentRuntimeProvider {
 
                 if needsMiraFallback, processLines.contains(where: ProcessListReader.isMiraDesktopProcess) {
                     runtimes.append(Self.miraRuntime(bundleIdentifier: AgentRuntimeIconBundle.mira))
+                }
+
+                if needsCursorFallback, processLines.contains(where: ProcessListReader.isCursorDesktopProcess) {
+                    runtimes.append(Self.cursorRuntime(bundleIdentifier: AgentRuntimeIconBundle.cursor))
                 }
             }
 
@@ -175,6 +198,8 @@ struct DesktopAppRuntimeProvider: AgentRuntimeProvider {
                 bundleIdentifier: bundleIdentifier,
                 iconBundleIdentifier: AgentRuntimeIconBundle.codex
             )
+        case AgentRuntimeIconBundle.cursor:
+            return cursorRuntime(bundleIdentifier: bundleIdentifier)
         case "com.anthropic.claudefordesktop", "com.anthropic.Claude":
             return AgentRuntime(
                 id: "desktop:claude",
@@ -222,6 +247,19 @@ struct DesktopAppRuntimeProvider: AgentRuntimeProvider {
         )
     }
 
+    static func cursorRuntime(bundleIdentifier: String) -> AgentRuntime {
+        AgentRuntime(
+            id: "desktop:cursor",
+            name: "Cursor",
+            provider: "Cursor",
+            providerID: .desktopApps,
+            kind: .desktopApp,
+            summary: "已运行；任务卡从本地 Cursor composer session 元数据读取",
+            bundleIdentifier: bundleIdentifier,
+            iconBundleIdentifier: AgentRuntimeIconBundle.cursor
+        )
+    }
+
     static func miraRuntime(bundleIdentifier: String) -> AgentRuntime {
         AgentRuntime(
             id: "desktop:mira",
@@ -252,6 +290,7 @@ struct DesktopAppRuntimeProvider: AgentRuntimeProvider {
 enum AgentRuntimeIconBundle {
     static let chatGPT = "com.openai.chat"
     static let codex = "com.openai.codex"
+    static let cursor = "com.todesktop.230313mzl4w4u92"
     static let claude = "com.anthropic.claudefordesktop"
     static let hermes = "com.nousresearch.hermes"
     static let openClaw = "ai.openclaw.mac"
@@ -294,10 +333,9 @@ enum ProcessListReader {
     }
 
     static func isTerminalAgentProcess(_ args: String) -> Bool {
-        let hasAgentName = args.contains(" codex")
-            || args.contains("/codex")
-            || args.contains(" claude")
-            || args.contains("/claude")
+        let hasAgentName = containsCommandName(args, name: "codex")
+            || containsCommandName(args, name: "claude")
+            || containsCommandName(args, name: "cursor")
 
         guard hasAgentName else {
             return false
@@ -305,6 +343,8 @@ enum ProcessListReader {
 
         let excludedMarkers = [
             "codex.app/",
+            "cursor.app/",
+            "cursor helper",
             "claude.app/",
             "chatgpt.app/",
             "app-server",
@@ -317,6 +357,11 @@ enum ProcessListReader {
         ]
 
         return !excludedMarkers.contains { args.contains($0) }
+    }
+
+    static func containsCommandName(_ args: String, name: String) -> Bool {
+        let pattern = #"(^|[\s/])\#(NSRegularExpression.escapedPattern(for: name))($|[\s"'])"#
+        return args.range(of: pattern, options: .regularExpression) != nil
     }
 
     static func isOpenClawProcess(_ args: String) -> Bool {
@@ -370,6 +415,14 @@ enum ProcessListReader {
         }
 
         return args.contains("/Mira.app/Contents/MacOS/Mira")
+    }
+
+    static func isCursorDesktopProcess(_ line: Substring) -> Bool {
+        guard let args = arguments(from: line) else {
+            return false
+        }
+
+        return args.contains("/Cursor.app/Contents/MacOS/Cursor")
     }
 
     static func isHermesDesktopProcess(_ line: Substring) -> Bool {

@@ -329,6 +329,16 @@ final class AgentTaskStoreTests: XCTestCase {
         XCTAssertFalse(reloadedStore.isDockIconEnabled)
     }
 
+    func testDefaultProviderDescriptorsIncludeCursor() throws {
+        let descriptors = AgentProviderDescriptor.defaults(homeDirectory: URL(fileURLWithPath: "/Users/tester"))
+
+        let cursor = try XCTUnwrap(descriptors.first(where: { $0.id == .cursor }))
+        XCTAssertEqual(cursor.displayName, "Cursor")
+        XCTAssertTrue(cursor.defaultEnabled)
+        XCTAssertTrue(cursor.dataPaths.contains("/Users/tester/Library/Application Support/Cursor/User/globalStorage/state.vscdb"))
+        XCTAssertTrue(cursor.privacyDescription.contains("composer session metadata"))
+    }
+
     func testTokenUsageSummariesGroupByAgentAndFilterDateRange() async throws {
         let calendar = Calendar(identifier: .gregorian)
         let now = Date(timeIntervalSince1970: 1_800_000_000)

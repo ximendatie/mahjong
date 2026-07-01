@@ -2,9 +2,8 @@ import AppKit
 import SwiftUI
 
 @MainActor
-final class BoardWindowController: NSObject, NSWindowDelegate {
+final class BoardWindowController: NSObject {
     private let window: AgentBoardPanel
-    private var isShowing = false
 
     init(taskStore: AgentTaskStore) {
         let rootView = BoardView(taskStore: taskStore)
@@ -28,12 +27,10 @@ final class BoardWindowController: NSObject, NSWindowDelegate {
         window.contentView = NSHostingView(rootView: rootView)
 
         super.init()
-        window.delegate = self
     }
 
     func toggle() {
-        if window.isVisible || isShowing {
-            isShowing = false
+        if window.isVisible {
             window.orderOut(nil)
         } else {
             show()
@@ -41,24 +38,9 @@ final class BoardWindowController: NSObject, NSWindowDelegate {
     }
 
     func show() {
-        isShowing = true
-        DispatchQueue.main.async { [weak self] in
-            guard let self, self.isShowing else {
-                return
-            }
-
-            NSApp.activate()
-            self.window.centerIfNeeded()
-            self.window.makeKeyAndOrderFront(nil)
-        }
-    }
-
-    func windowDidBecomeKey(_ notification: Notification) {
-        isShowing = window.isVisible
-    }
-
-    func windowWillClose(_ notification: Notification) {
-        isShowing = false
+        NSApp.activate(ignoringOtherApps: true)
+        window.centerIfNeeded()
+        window.makeKeyAndOrderFront(nil)
     }
 
     private static func defaultFrame() -> NSRect {

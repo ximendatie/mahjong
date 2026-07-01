@@ -2,6 +2,7 @@ import Foundation
 
 enum AgentProviderID: String, CaseIterable, Codable, Sendable {
     case codex
+    case cursor
     case chatGPT = "chatgpt"
     case claudeCLI = "claude-cli"
     case claudeDesktop = "claude-desktop"
@@ -43,6 +44,16 @@ struct AgentProviderDescriptor: Identifiable, Equatable, Sendable {
                 ],
                 privacyDescription: "Reads ChatGPT Desktop app running state, Accessibility button labels for generation state, and conversation cache modification times without parsing conversation text.",
                 detail: "Observes ChatGPT Desktop running state and recent local cache activity."
+            ),
+            AgentProviderDescriptor(
+                id: .cursor,
+                displayName: "Cursor",
+                defaultEnabled: true,
+                dataPaths: [
+                    "\(home)/Library/Application Support/Cursor/User/globalStorage/state.vscdb"
+                ],
+                privacyDescription: "Reads Cursor composer session metadata such as title, status, model, timestamps, and token counters without parsing conversation text.",
+                detail: "Reads local Cursor composer session metadata."
             ),
             AgentProviderDescriptor(
                 id: .claudeCLI,

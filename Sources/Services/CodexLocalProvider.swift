@@ -131,10 +131,6 @@ struct CodexLocalProvider: AgentTaskProvider {
                 if let id = payload["id"] as? String {
                     metadata.sessionID = id
                 }
-
-                if let cwd = payload["cwd"] as? String {
-                    metadata.cwd = cwd
-                }
             }
 
             if let cwd = payload["cwd"] as? String {
@@ -200,7 +196,7 @@ struct CodexLocalProvider: AgentTaskProvider {
 
             let snapshots = readUsageLimitSnapshots(from: fileURL)
             for (limitID, snapshot) in snapshots {
-                guard let s = snapshot.latest else { continue }
+                guard let s = representativeUsageLimitSummary(from: snapshot) else { continue }
                 if latestByID[limitID] == nil || s.observedAt > latestByID[limitID]!.observedAt {
                     latestByID[limitID] = s
                 }
@@ -255,6 +251,24 @@ struct CodexLocalProvider: AgentTaskProvider {
         }
         return result
 
+    }
+
+    private func representativeUsageLimitSummary(
+        from snapshot: CodexUsageLimitSnapshot
+    ) -> CodexUsageLimitSummary? {
+        guard let latest = snapshot.latest else {
+            return snapshot.latestNonZero
+        }
+
+        guard
+            isZeroUsageLimit(latest),
+            let latestNonZero = snapshot.latestNonZero,
+            latest.observedAt < latestNonZero.primary.resetsAt
+        else {
+            return latest
+        }
+
+        return latestNonZero
     }
 
     private func codexUsageLimitSummary(

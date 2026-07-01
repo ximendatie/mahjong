@@ -165,7 +165,7 @@ final class CodexLocalProviderTests: XCTestCase {
         try session.write(to: sessionURL, atomically: true, encoding: .utf8)
 
         let fetchedSummary = await CodexLocalProvider(homeDirectory: temporaryHome).fetchUsageLimits()
-        let summary = try XCTUnwrap(fetchedSummary)
+        let summary = try XCTUnwrap(fetchedSummary.first)
 
         XCTAssertEqual(summary.limitName, "GPT-5 Codex")
         XCTAssertEqual(summary.primary.usedPercent, 2.0)
@@ -193,7 +193,7 @@ final class CodexLocalProviderTests: XCTestCase {
         try session.write(to: sessionURL, atomically: true, encoding: .utf8)
 
         let fetchedSummary = await CodexLocalProvider(homeDirectory: temporaryHome).fetchUsageLimits()
-        let summary = try XCTUnwrap(fetchedSummary)
+        let summary = try XCTUnwrap(fetchedSummary.first)
 
         XCTAssertEqual(summary.primary.usedPercent, 11.0)
         XCTAssertEqual(summary.primary.remainingPercent, 89.0)
@@ -217,7 +217,7 @@ final class CodexLocalProviderTests: XCTestCase {
         try session.write(to: sessionURL, atomically: true, encoding: .utf8)
 
         let fetchedSummary = await CodexLocalProvider(homeDirectory: temporaryHome).fetchUsageLimits()
-        let summary = try XCTUnwrap(fetchedSummary)
+        let summary = try XCTUnwrap(fetchedSummary.first)
 
         XCTAssertEqual(summary.primary.usedPercent, 0.0)
         XCTAssertEqual(summary.primary.remainingPercent, 100.0)

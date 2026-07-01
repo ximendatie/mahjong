@@ -8,6 +8,7 @@ It does not upload session data and does not control provider apps.
 | Provider | Local data used |
 | --- | --- |
 | Codex | `~/.codex/session_index.jsonl`, `~/.codex/sessions/**/*.jsonl` |
+| Cursor | Composer session metadata fields from `~/Library/Application Support/Cursor/User/globalStorage/state.vscdb` and Cursor app/CLI process metadata |
 | ChatGPT | Running app bundle identifier from `NSWorkspace`, Accessibility button labels for generation state, and modification times under `~/Library/Application Support/com.openai.chat/conversations-v3-*/*.data` |
 | Claude CLI | `~/.claude/projects/**/*.jsonl` |
 | Claude Desktop | `~/Library/Application Support/Claude-3p/local-agent-mode-sessions/**/local_*.json`, `~/Library/Application Support/Claude-3p/claude-code-sessions/**/local_*.json` |
@@ -35,8 +36,8 @@ analytics totals, future-plan notes, and detailed diagnostic paths in the UI.
 - It does not write to provider config, session, or cache files.
 - It does not send messages to providers.
 - It does not execute commands on behalf of providers.
-- It does not control Codex Desktop, Claude Desktop, ChatGPT Desktop, OpenClaw,
-  Hermes, or terminal agent processes.
+- It does not control Codex Desktop, Cursor, Claude Desktop, ChatGPT Desktop,
+  OpenClaw, Hermes, or terminal agent processes.
 
 ## Contributor Expectations
 
